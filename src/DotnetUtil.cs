@@ -24,7 +24,7 @@ public class DotnetUtil : IDotnetUtil
         string arguments = CreateRunArgument(path, framework, configuration, verbosity, build);
 
         if (log)
-            _logger.LogInformation("Executing: dotnet run {arguments} ...", path);
+            _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
 
         List<string> _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log).NoSync();
     }
@@ -56,7 +56,7 @@ public class DotnetUtil : IDotnetUtil
         string arguments = CreateRestoreArgument(path, configuration, verbosity);
 
         if (log)
-            _logger.LogInformation("Executing: dotnet restore {arguments} ...", path);
+            _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
 
         List<string> _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log).NoSync();
     }
@@ -79,7 +79,7 @@ public class DotnetUtil : IDotnetUtil
         string arguments = CreateBuildArgument(path, configuration, restore, verbosity);
 
         if (log)
-            _logger.LogInformation("Executing: dotnet build {arguments} ...", path);
+            _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
 
         List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log).NoSync();
 
@@ -116,7 +116,7 @@ public class DotnetUtil : IDotnetUtil
         string arguments = CreateTestArgument(path, restore, verbosity);
 
         if (log)
-            _logger.LogInformation("Executing: dotnet test {arguments} ...", path);
+            _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
 
         List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log).NoSync();
 
@@ -150,7 +150,7 @@ public class DotnetUtil : IDotnetUtil
         string arguments = CreatePackArgument(path, configuration, build, output);
 
         if (log)
-            _logger.LogInformation("Executing: dotnet pack {arguments} ...", path);
+            _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
 
         List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log).NoSync();
 
