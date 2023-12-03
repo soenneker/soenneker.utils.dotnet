@@ -1,4 +1,3 @@
-using System;
 using System.Threading.Tasks;
 
 namespace Soenneker.Utils.Dotnet.Abstract;
@@ -10,7 +9,7 @@ public interface IDotnetUtil
 {
     ValueTask Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal", bool? build = true);
 
-    ValueTask Restore(string path, bool log = true, string? configuration = "Release", string? verbosity = "normal");
+    ValueTask Restore(string path, bool log = true, string? verbosity = "normal");
 
     ValueTask<bool> Build(string path, bool log = true, string? configuration = "Release", bool? restore = true, string? verbosity = "normal");
 
