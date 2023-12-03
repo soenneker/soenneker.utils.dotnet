@@ -51,9 +51,9 @@ public class DotnetUtil : IDotnetUtil
         return argument;
     }
 
-    public async ValueTask Restore(string path, bool log = true, string? configuration = "Release", string? verbosity = "normal")
+    public async ValueTask Restore(string path, bool log = true, string? verbosity = "normal")
     {
-        string arguments = CreateRestoreArgument(path, configuration, verbosity);
+        string arguments = CreateRestoreArgument(path, verbosity);
 
         if (log)
             _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
@@ -61,12 +61,9 @@ public class DotnetUtil : IDotnetUtil
         List<string> _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log).NoSync();
     }
 
-    private static string CreateRestoreArgument(string path, string? configuration, string? verbosity)
+    private static string CreateRestoreArgument(string path, string? verbosity)
     {
         var argument = $"restore \"{path}\"";
-
-        if (configuration != null)
-            argument += $" -c {configuration}";
 
         if (verbosity != null)
             argument += $" -v {verbosity}";
