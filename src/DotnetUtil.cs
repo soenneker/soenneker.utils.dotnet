@@ -142,9 +142,9 @@ public class DotnetUtil : IDotnetUtil
         return argument;
     }
 
-    public async ValueTask<bool> Pack(string path, bool log = true, string? configuration = "Release", bool? build = false, string? output = ".")
+    public async ValueTask<bool> Pack(string path, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false, string? output = ".", string? verbosity = "normal")
     {
-        string arguments = CreatePackArgument(path, configuration, build, output);
+        string arguments = CreatePackArgument(path, configuration, build, restore, output, verbosity);
 
         if (log)
             _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
@@ -160,7 +160,7 @@ public class DotnetUtil : IDotnetUtil
         return false;
     }
 
-    private static string CreatePackArgument(string path, string? configuration, bool? build, string? output)
+    private static string CreatePackArgument(string path, string? configuration, bool? build, bool? restore, string? output, string? verbosity)
     {
         var argument = $"pack \"{path}\"";
 
@@ -173,8 +173,17 @@ public class DotnetUtil : IDotnetUtil
                 argument += " --no-build";
         }
 
+        if (restore != null)
+        {
+            if (!restore.Value)
+                argument += " --no-restore";
+        }
+
         if (output != null)
-            argument += $" --output {output}";
+            argument += $" --output \"{output}\"";
+
+        if (verbosity != null)
+            argument += $" -v {verbosity}";
 
         return argument;
     }
