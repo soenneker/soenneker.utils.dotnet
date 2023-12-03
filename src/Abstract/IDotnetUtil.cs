@@ -15,5 +15,5 @@ public interface IDotnetUtil
 
     ValueTask<bool> Test(string path, bool log = true, bool? restore = true, string? verbosity = "normal");
 
-    ValueTask<bool> Pack(string path, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false, string? output = ".", string? verbosity = "normal");
+    ValueTask<bool> Pack(string path, string version, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false, string? output = ".", string? verbosity = "normal");
 }
