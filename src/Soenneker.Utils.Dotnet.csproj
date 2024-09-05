@@ -40,6 +40,6 @@
 
     <ItemGroup>
         <PackageReference Include="Soenneker.Extensions.ValueTask" Version="2.1.46" />
-        <PackageReference Include="Soenneker.Utils.Process" Version="2.1.492" />
+        <PackageReference Include="Soenneker.Utils.Process" Version="2.1.494" />
     </ItemGroup>
 </Project>
