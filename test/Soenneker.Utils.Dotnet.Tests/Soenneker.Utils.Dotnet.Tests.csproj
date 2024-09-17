@@ -32,7 +32,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\src\Soenneker.Utils.Dotnet.csproj" />
+        <ProjectReference Include="..\..\src\Soenneker.Utils.Dotnet.csproj" />
     </ItemGroup>
 
 </Project>
