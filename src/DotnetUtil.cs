@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Soenneker.Extensions.ValueTask;
@@ -19,14 +20,14 @@ public class DotnetUtil : IDotnetUtil
         _processUtil = processUtil;
     }
 
-    public async ValueTask Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal", bool? build = true)
+    public async ValueTask Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal", bool? build = true, CancellationToken cancellationToken = default)
     {
         string arguments = CreateRunArgument(path, framework, configuration, verbosity, build);
 
         if (log)
             _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
 
-        List<string> _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log).NoSync();
+        List<string> _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
     }
 
     private static string CreateRunArgument(string path, string? framework, string? configuration, string? verbosity, bool? build)
@@ -51,14 +52,14 @@ public class DotnetUtil : IDotnetUtil
         return argument;
     }
 
-    public async ValueTask Restore(string path, bool log = true, string? verbosity = "normal")
+    public async ValueTask Restore(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
         string arguments = CreateRestoreArgument(path, verbosity);
 
         if (log)
             _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
 
-        List<string> _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log).NoSync();
+        List<string> _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
     }
 
     private static string CreateRestoreArgument(string path, string? verbosity)
@@ -71,14 +72,14 @@ public class DotnetUtil : IDotnetUtil
         return argument;
     }
 
-    public async ValueTask<bool> Build(string path, bool log = true, string? configuration = "Release", bool? restore = true, string? verbosity = "normal")
+    public async ValueTask<bool> Build(string path, bool log = true, string? configuration = "Release", bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
         string arguments = CreateBuildArgument(path, configuration, restore, verbosity);
 
         if (log)
             _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
 
-        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log).NoSync();
+        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
 
         foreach (string output in processOutput)
         {
@@ -108,14 +109,14 @@ public class DotnetUtil : IDotnetUtil
         return argument;
     }
 
-    public async ValueTask<bool> Test(string path, bool log = true, bool? restore = true, string? verbosity = "normal")
+    public async ValueTask<bool> Test(string path, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
         string arguments = CreateTestArgument(path, restore, verbosity);
 
         if (log)
             _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
 
-        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log).NoSync();
+        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
 
         foreach (string output in processOutput)
         {
@@ -142,14 +143,14 @@ public class DotnetUtil : IDotnetUtil
         return argument;
     }
 
-    public async ValueTask<bool> Pack(string path, string version, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false, string? output = ".", string? verbosity = "normal")
+    public async ValueTask<bool> Pack(string path, string version, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false, string? output = ".", string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
         string arguments = CreatePackArgument(path, version, configuration, build, restore, output, verbosity);
 
         if (log)
             _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
 
-        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log).NoSync();
+        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
 
         foreach (string str in processOutput)
         {
