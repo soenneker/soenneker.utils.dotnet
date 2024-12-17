@@ -17,4 +17,6 @@ public interface IDotnetUtil
     ValueTask<bool> Test(string path, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default);
 
     ValueTask<bool> Pack(string path, string version, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false, string? output = ".", string? verbosity = "normal", CancellationToken cancellationToken = default);
+
+    ValueTask<bool> Remove(string path, string packageName, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default);
 }

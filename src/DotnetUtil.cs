@@ -27,7 +27,7 @@ public class DotnetUtil : IDotnetUtil
         if (log)
             _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
 
-        List<string> _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
+        _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
     }
 
     private static string CreateRunArgument(string path, string? framework, string? configuration, string? verbosity, bool? build)
@@ -59,7 +59,7 @@ public class DotnetUtil : IDotnetUtil
         if (log)
             _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
 
-        List<string> _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
+        _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
     }
 
     private static string CreateRestoreArgument(string path, string? verbosity)
@@ -184,6 +184,37 @@ public class DotnetUtil : IDotnetUtil
 
         if (output != null)
             argument += $" --output \"{output}\"";
+
+        if (verbosity != null)
+            argument += $" -v {verbosity}";
+
+        return argument;
+    }
+
+    public async ValueTask<bool> Remove(string path, string packageName, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
+    {
+        string arguments = CreateRemoveArgument(path, packageName, restore, verbosity);
+
+        if (log)
+            _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
+
+        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
+
+        foreach (string output in processOutput)
+        {
+            if (output.Contains("Successfully removed") || output.Contains("does not contain"))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static string CreateRemoveArgument(string path, string packageName, bool? restore, string? verbosity)
+    {
+        var argument = $"remove \"{path}\" package \"{packageName}\"";
+
+        if (restore != null && !restore.Value)
+            argument += " --no-restore";
 
         if (verbosity != null)
             argument += $" -v {verbosity}";
