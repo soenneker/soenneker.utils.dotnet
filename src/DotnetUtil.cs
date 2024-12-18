@@ -64,7 +64,7 @@ public class DotnetUtil : IDotnetUtil
             "test",
             path,
             p => ArgumentUtil.Test(p, restore, verbosity),
-            output => output.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase),
+            output => !output.Contains("Build FAILED.") && output.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase),
             log,
             cancellationToken
         );
