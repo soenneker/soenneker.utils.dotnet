@@ -70,7 +70,8 @@ public class DotnetUtil : IDotnetUtil
             output =>
             {
                 return output.Contains("test succeeded", StringComparison.OrdinalIgnoreCase)
-                       || output.Contains("Passed!", StringComparison.OrdinalIgnoreCase);
+                       || output.Contains("Passed!", StringComparison.OrdinalIgnoreCase)
+                       || output.Contains("Test Run Successful.", StringComparison.OrdinalIgnoreCase);
             },
             output =>
             {
