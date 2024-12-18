@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,205 +21,200 @@ public class DotnetUtil : IDotnetUtil
         _processUtil = processUtil;
     }
 
-    public async ValueTask Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal", bool? build = true, CancellationToken cancellationToken = default)
+    public ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal", bool? build = true,
+        CancellationToken cancellationToken = default)
     {
-        string arguments = CreateRunArgument(path, framework, configuration, verbosity, build);
-
-        if (log)
-            _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
-
-        _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
+        return ExecuteCommand(
+            "run",
+            path,
+            p => ArgumentUtil.Run(p, framework, configuration, verbosity, build),
+            _ => true, // No specific success criteria for `dotnet run`
+            log,
+            cancellationToken
+        );
     }
 
-    private static string CreateRunArgument(string path, string? framework, string? configuration, string? verbosity, bool? build)
+    public ValueTask<bool> Restore(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
-        var argument = $"run \"{path}\"";
+        return ExecuteCommand(
+            "restore",
+            path,
+            p => ArgumentUtil.Restore(p, verbosity),
+            output => output.Contains("Restore completed", StringComparison.OrdinalIgnoreCase),
+            log,
+            cancellationToken
+        );
+    }
 
-        if (framework != null)
-            argument += $" -f {framework}";
+    public ValueTask<bool> Build(string path, bool log = true, string? configuration = "Release", bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
+    {
+        return ExecuteCommand(
+            "build",
+            path,
+            p => ArgumentUtil.Build(p, configuration, restore, verbosity),
+            output => output.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase),
+            log,
+            cancellationToken
+        );
+    }
 
-        if (configuration != null)
-            argument += $" -c {configuration}";
+    public ValueTask<bool> Test(string path, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
+    {
+        return ExecuteCommand(
+            "test",
+            path,
+            p => ArgumentUtil.Test(p, restore, verbosity),
+            output => output.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase),
+            log,
+            cancellationToken
+        );
+    }
 
-        if (verbosity != null)
-            argument += $" -v {verbosity}";
+    public ValueTask<bool> Pack(string path, string version, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false, string? output = ".",
+        string? verbosity = "normal", CancellationToken cancellationToken = default)
+    {
+        return ExecuteCommand(
+            "pack",
+            path,
+            p => ArgumentUtil.Pack(p, version, configuration, build, restore, output, verbosity),
+            o => o.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase),
+            log,
+            cancellationToken
+        );
+    }
 
-        if (build != null)
+    public ValueTask<bool> RemovePackage(string path, string packageId, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
+    {
+        return ExecuteCommand(
+            "remove",
+            path,
+            p => ArgumentUtil.RemovePackage(p, packageId, restore, verbosity),
+            output => output.Contains("Successfully removed", StringComparison.OrdinalIgnoreCase) ||
+                      output.Contains("does not contain", StringComparison.OrdinalIgnoreCase),
+            log,
+            cancellationToken
+        );
+    }
+
+
+    public ValueTask<bool> AddPackage(string projectPath, string packageId, string? version = null, bool log = true, bool? restore = true, string? verbosity = "normal",
+        CancellationToken cancellationToken = default)
+    {
+        return ExecuteCommand(
+            "add",
+            projectPath,
+            path => ArgumentUtil.AddPackage(path, packageId, version, restore, verbosity),
+            output => output.Contains("added package", StringComparison.OrdinalIgnoreCase),
+            log,
+            cancellationToken
+        );
+    }
+
+    public async ValueTask<bool> UpdatePackages(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Updating packages for path ({path})...", path);
+
+        List<string> outdatedPackages = await ListPackages(
+            path,
+            outdatedOnly: true,
+            log: log,
+            verbosity: verbosity,
+            cancellationToken: cancellationToken
+        ).NoSync();
+
+        if (outdatedPackages.Count == 0)
         {
-            if (!build.Value)
-                argument += " --no-build";
+            _logger.LogInformation("No outdated packages found to update");
+            return true;
         }
 
-        return argument;
+        foreach (string package in outdatedPackages)
+        {
+            _logger.LogInformation("Updating package: {Package}", package);
+
+            bool updateSuccess = await AddPackage(
+                path,
+                packageId: package,
+                version: null, // Update to the latest version
+                log: log,
+                restore: true,
+                verbosity: verbosity,
+                cancellationToken: cancellationToken
+            ).NoSync();
+
+            if (!updateSuccess)
+            {
+                _logger.LogError("Failed to update package ({Package}); exiting early", package);
+                return false; // Stop and return false if any update fails
+            }
+        }
+
+        _logger.LogInformation("Successfully updated all outdated packages");
+        return true;
     }
 
-    public async ValueTask Restore(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
+    public ValueTask<bool> Clean(string path, bool log = true, string? configuration = "Release", string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
-        string arguments = CreateRestoreArgument(path, verbosity);
-
-        if (log)
-            _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
-
-        _ = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
+        return ExecuteCommand(
+            "clean",
+            path,
+            p => ArgumentUtil.Clean(p, configuration, verbosity),
+            output => output.Contains("Cleaned", StringComparison.OrdinalIgnoreCase),
+            log,
+            cancellationToken
+        );
     }
 
-    private static string CreateRestoreArgument(string path, string? verbosity)
+    public async ValueTask<List<string>> ListPackages(string path, bool outdatedOnly = false, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
-        var argument = $"restore \"{path}\"";
+        var packages = new List<string>();
 
-        if (verbosity != null)
-            argument += $" -v {verbosity}";
-
-        return argument;
-    }
-
-    public async ValueTask<bool> Build(string path, bool log = true, string? configuration = "Release", bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
-    {
-        string arguments = CreateBuildArgument(path, configuration, restore, verbosity);
-
-        if (log)
-            _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
-
-        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
+        List<string> processOutput = await ExecuteCommandWithOutput(
+            "list",
+            path,
+            p => ArgumentUtil.ListPackages(p, outdatedOnly, verbosity),
+            log,
+            cancellationToken
+        );
 
         foreach (string output in processOutput)
         {
-            if (output == "    0 Error(s)")
-                return true;
+            if (output.Contains('>', StringComparison.OrdinalIgnoreCase))
+            {
+                string[] parts = output.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length >= 2)
+                    packages.Add(parts[1]);
+            }
         }
 
-        return false;
+        return packages;
     }
 
-    private static string CreateBuildArgument(string path, string? configuration, bool? restore, string? verbosity)
+    public async ValueTask<bool> ExecuteCommand(string command, string projectPath, Func<string, string> argumentBuilder, Func<string, bool> successCriteria,
+        bool log = true, CancellationToken cancellationToken = default)
     {
-        var argument = $"build \"{path}\"";
-
-        if (configuration != null)
-            argument += $" -c {configuration}";
-
-        if (restore != null)
-        {
-            if (!restore.Value)
-                argument += " --no-restore";
-        }
-
-        if (verbosity != null)
-            argument += $" -v {verbosity}";
-
-        return argument;
-    }
-
-    public async ValueTask<bool> Test(string path, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
-    {
-        string arguments = CreateTestArgument(path, restore, verbosity);
-
-        if (log)
-            _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
-
-        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
+        List<string> processOutput = await ExecuteCommandWithOutput(command, projectPath, argumentBuilder, log, cancellationToken).NoSync();
 
         foreach (string output in processOutput)
         {
-            if (output == "    0 Error(s)")
+            if (successCriteria(output))
                 return true;
         }
 
         return false;
     }
 
-    private static string CreateTestArgument(string path, bool? restore, string? verbosity)
+    public async ValueTask<List<string>> ExecuteCommandWithOutput(string command, string projectPath, Func<string, string> argumentBuilder, bool log = true,
+        CancellationToken cancellationToken = default)
     {
-        var argument = $"test \"{path}\"";
-
-        if (restore != null)
-        {
-            if (!restore.Value)
-                argument += " --no-restore";
-        }
-
-        if (verbosity != null)
-            argument += $" -v {verbosity}";
-
-        return argument;
-    }
-
-    public async ValueTask<bool> Pack(string path, string version, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false, string? output = ".", string? verbosity = "normal", CancellationToken cancellationToken = default)
-    {
-        string arguments = CreatePackArgument(path, version, configuration, build, restore, output, verbosity);
+        string arguments = argumentBuilder(projectPath);
 
         if (log)
-            _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
+            _logger.LogInformation("Executing: dotnet {Command} {Arguments} ...", command, arguments);
 
-        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
+        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, $"{command} {arguments}", true, true, log, cancellationToken).NoSync();
 
-        foreach (string str in processOutput)
-        {
-            if (str == "    0 Error(s)")
-                return true;
-        }
-
-        return false;
-    }
-
-    private static string CreatePackArgument(string path, string version, string? configuration, bool? build, bool? restore, string? output, string? verbosity)
-    {
-        var argument = $"pack \"{path}\"";
-
-        argument += $" -p:PackageVersion={version}";
-
-        if (configuration != null)
-            argument += $" -c {configuration}";
-
-        if (build != null)
-        {
-            if (!build.Value)
-                argument += " --no-build";
-        }
-
-        if (restore != null)
-        {
-            if (!restore.Value)
-                argument += " --no-restore";
-        }
-
-        if (output != null)
-            argument += $" --output \"{output}\"";
-
-        if (verbosity != null)
-            argument += $" -v {verbosity}";
-
-        return argument;
-    }
-
-    public async ValueTask<bool> Remove(string path, string packageName, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
-    {
-        string arguments = CreateRemoveArgument(path, packageName, restore, verbosity);
-
-        if (log)
-            _logger.LogInformation("Executing: dotnet {arguments} ...", arguments);
-
-        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, arguments, true, true, log, cancellationToken).NoSync();
-
-        foreach (string output in processOutput)
-        {
-            if (output.Contains("Successfully removed") || output.Contains("does not contain"))
-                return true;
-        }
-
-        return false;
-    }
-
-    private static string CreateRemoveArgument(string path, string packageName, bool? restore, string? verbosity)
-    {
-        var argument = $"remove \"{path}\" package \"{packageName}\"";
-
-        if (restore != null && !restore.Value)
-            argument += " --no-restore";
-
-        if (verbosity != null)
-            argument += $" -v {verbosity}";
-
-        return argument;
+        return processOutput;
     }
 }
