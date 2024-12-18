@@ -81,10 +81,9 @@ public interface IDotnetUtil
     /// <param name="packageId">The ID of the NuGet package to remove.</param>
     /// <param name="log">Indicates whether to log the command execution details.</param>
     /// <param name="restore">Indicates whether to restore dependencies after removing the package. Default is true.</param>
-    /// <param name="verbosity">The verbosity level for the output (e.g., quiet, normal, detailed).</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>Returns true if the package is removed successfully; otherwise, false.</returns>
-    ValueTask<bool> RemovePackage(string path, string packageId, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default);
+    ValueTask<bool> RemovePackage(string path, string packageId, bool log = true, bool? restore = true, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Executes the 'dotnet add package' command to add a specified NuGet package to a project.
@@ -94,11 +93,9 @@ public interface IDotnetUtil
     /// <param name="version">The version of the package to add (optional).</param>
     /// <param name="log">Indicates whether to log the command execution details.</param>
     /// <param name="restore">Indicates whether to restore dependencies after adding the package. Default is true.</param>
-    /// <param name="verbosity">The verbosity level for the output (e.g., quiet, normal, detailed).</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>Returns true if the package is added successfully; otherwise, false.</returns>
-    ValueTask<bool> AddPackage(string projectPath, string packageId, string? version = null, bool log = true, bool? restore = true, string? verbosity = "normal",
-        CancellationToken cancellationToken = default);
+    ValueTask<bool> AddPackage(string projectPath, string packageId, string? version = null, bool log = true, bool? restore = true, CancellationToken cancellationToken = default);
 
     ValueTask<bool> Clean(string path, bool log = true, string? configuration = "Release", string? verbosity = "normal", CancellationToken cancellationToken = default);
 

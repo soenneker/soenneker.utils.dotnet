@@ -1,4 +1,6 @@
-﻿namespace Soenneker.Utils.Dotnet;
+﻿using Soenneker.Extensions.String;
+
+namespace Soenneker.Utils.Dotnet;
 
 internal static class ArgumentUtil
 {
@@ -99,31 +101,25 @@ internal static class ArgumentUtil
         return argument;
     }
 
-    internal static string AddPackage(string path, string packageId, string? version, bool? restore, string? verbosity)
+    internal static string AddPackage(string path, string packageId, string? version, bool? restore)
     {
         var argument = $"\"{path}\" package \"{packageId}\"";
 
-        if (version != null)
+        if (!version.IsNullOrEmpty())
             argument += $" --version {version}";
 
         if (restore.HasValue && !restore.Value)
             argument += " --no-restore";
 
-        if (!string.IsNullOrEmpty(verbosity))
-            argument += $" -v {verbosity}";
-
         return argument;
     }
 
-    internal static string RemovePackage(string path, string packageId, bool? restore, string? verbosity)
+    internal static string RemovePackage(string path, string packageId, bool? restore)
     {
         var argument = $"\"{path}\" package \"{packageId}\"";
 
         if (restore != null && !restore.Value)
             argument += " --no-restore";
-
-        if (verbosity != null)
-            argument += $" -v {verbosity}";
 
         return argument;
     }

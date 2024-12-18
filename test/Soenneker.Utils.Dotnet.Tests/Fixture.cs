@@ -10,7 +10,7 @@ namespace Soenneker.Utils.Dotnet.Tests;
 
 public class Fixture : UnitFixture
 {
-    public override async Task InitializeAsync()
+    public override async ValueTask InitializeAsync()
     {
         SetupIoC(Services);
 

@@ -6,7 +6,6 @@ using Soenneker.Facts.Local;
 using Soenneker.Tests.FixturedUnit;
 using Soenneker.Utils.Dotnet.Abstract;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Soenneker.Utils.Dotnet.Tests.Utils;
 
@@ -21,13 +20,21 @@ public class DotnetUtilTests : FixturedUnitTest
     }
 
     [LocalFact]
-    public async Task Download_should_download()
+    public async Task Build()
     {
         string? path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
         string proj = Path.Combine(path!, "..", "..", "..", "..", "src");
 
         bool result = await _util.Build(proj);
+
+        result.Should().BeTrue();
+    }
+
+    [LocalFact]
+    public async Task UpdatePackages()
+    {
+        bool result = await _util.UpdatePackages("", cancellationToken: TestContext.Current.CancellationToken);
 
         result.Should().BeTrue();
     }
