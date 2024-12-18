@@ -110,11 +110,12 @@ public interface IDotnetUtil
     /// <param name="projectPath">The path to the project or solution file.</param>
     /// <param name="argumentBuilder">A function to build the arguments for the command.</param>
     /// <param name="successCriteria">A function to evaluate whether the command output indicates success.</param>
+    /// <param name="failureCriteria"></param>
     /// <param name="log">Indicates whether to log the command execution details.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>Returns true if the command executes successfully based on the provided criteria; otherwise, false.</returns>
-    ValueTask<bool> ExecuteCommand(string command, string projectPath, Func<string, string> argumentBuilder, Func<string, bool> successCriteria,
-        bool log = true, CancellationToken cancellationToken = default);
+    ValueTask<bool> ExecuteCommand(string command, string projectPath, Func<string, string> argumentBuilder,
+        Func<string, bool> successCriteria, Func<string, bool>? failureCriteria = null, bool log = true, CancellationToken cancellationToken = default);
 
     ValueTask<List<string>> ExecuteCommandWithOutput(string command, string projectPath, Func<string, string> argumentBuilder, bool log = true, CancellationToken cancellationToken = default);
 }

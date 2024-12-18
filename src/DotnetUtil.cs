@@ -29,6 +29,7 @@ public class DotnetUtil : IDotnetUtil
             path,
             p => ArgumentUtil.Run(p, framework, configuration, verbosity, build),
             _ => true, // No specific success criteria for `dotnet run`
+            null,
             log,
             cancellationToken
         );
@@ -41,6 +42,7 @@ public class DotnetUtil : IDotnetUtil
             path,
             p => ArgumentUtil.Restore(p, verbosity),
             output => output.Contains("Restore completed", StringComparison.OrdinalIgnoreCase),
+            null,
             log,
             cancellationToken
         );
@@ -53,6 +55,7 @@ public class DotnetUtil : IDotnetUtil
             path,
             p => ArgumentUtil.Build(p, configuration, restore, verbosity),
             output => output.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase),
+            null,
             log,
             cancellationToken
         );
@@ -64,7 +67,16 @@ public class DotnetUtil : IDotnetUtil
             "test",
             path,
             p => ArgumentUtil.Test(p, restore, verbosity),
-            output => !output.Contains("Build FAILED.") && output.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase),
+            output =>
+            {
+                return output.Contains("test succeeded", StringComparison.OrdinalIgnoreCase)
+                       || output.Contains("Passed!", StringComparison.OrdinalIgnoreCase);
+            },
+            output =>
+            {
+                return output.Contains("build failed", StringComparison.OrdinalIgnoreCase)
+                       || output.Contains("test failed", StringComparison.OrdinalIgnoreCase);
+            },
             log,
             cancellationToken
         );
@@ -78,6 +90,7 @@ public class DotnetUtil : IDotnetUtil
             path,
             p => ArgumentUtil.Pack(p, version, configuration, build, restore, output, verbosity),
             o => o.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase),
+            null,
             log,
             cancellationToken
         );
@@ -91,6 +104,7 @@ public class DotnetUtil : IDotnetUtil
             p => ArgumentUtil.RemovePackage(p, packageId, restore),
             output => output.Contains("Successfully removed", StringComparison.OrdinalIgnoreCase) ||
                       output.Contains("does not contain", StringComparison.OrdinalIgnoreCase),
+            null,
             log,
             cancellationToken
         );
@@ -108,6 +122,7 @@ public class DotnetUtil : IDotnetUtil
                 return output.Contains("PackageReference for package", StringComparison.OrdinalIgnoreCase)
                        && output.Contains("updated in file", StringComparison.OrdinalIgnoreCase);
             },
+            null,
             log,
             cancellationToken
         );
@@ -149,7 +164,6 @@ public class DotnetUtil : IDotnetUtil
                 continue;
             }
 
-            // Update each outdated package
             foreach (string package in outdatedPackages)
             {
                 _logger.LogInformation("Updating package ({Package}) in project ({ProjectFile})...", package, projectFile);
@@ -186,6 +200,7 @@ public class DotnetUtil : IDotnetUtil
             path,
             p => ArgumentUtil.Clean(p, configuration, verbosity),
             output => output.Contains("Cleaned", StringComparison.OrdinalIgnoreCase),
+            null,
             log,
             cancellationToken
         );
@@ -217,8 +232,8 @@ public class DotnetUtil : IDotnetUtil
         return packages;
     }
 
-    public async ValueTask<bool> ExecuteCommand(string command, string projectPath, Func<string, string> argumentBuilder, Func<string, bool> successCriteria,
-        bool log = true, CancellationToken cancellationToken = default)
+    public async ValueTask<bool> ExecuteCommand(string command, string projectPath, Func<string, string> argumentBuilder,
+        Func<string, bool> successCriteria, Func<string, bool>? failureCriteria = null, bool log = true, CancellationToken cancellationToken = default)
     {
         List<string> processOutput = await ExecuteCommandWithOutput(command, projectPath, argumentBuilder, log, cancellationToken).NoSync();
 
@@ -226,6 +241,9 @@ public class DotnetUtil : IDotnetUtil
         {
             if (successCriteria(output))
                 return true;
+
+            if (failureCriteria != null && failureCriteria(output))
+                return false;
         }
 
         return false;

@@ -20,7 +20,7 @@ public class DotnetUtilTests : FixturedUnitTest
     }
 
     [LocalFact]
-    public async Task Build()
+    public async ValueTask Build()
     {
         string? path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
@@ -32,10 +32,18 @@ public class DotnetUtilTests : FixturedUnitTest
     }
 
     [LocalFact]
-    public async Task UpdatePackages()
+    public async ValueTask UpdatePackages()
     {
         bool result = await _util.UpdatePackages("", cancellationToken: TestContext.Current.CancellationToken);
 
         result.Should().BeTrue();
+    }
+
+    [LocalFact]
+    public async ValueTask Test()
+    {
+        bool result = await _util.Test("", cancellationToken: TestContext.Current.CancellationToken);
+
+        result.Should().BeFalse();
     }
 }
