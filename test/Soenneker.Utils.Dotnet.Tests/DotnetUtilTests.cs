@@ -3,11 +3,12 @@ using System.Reflection;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Soenneker.Facts.Local;
+using Soenneker.Facts.Manual;
 using Soenneker.Tests.FixturedUnit;
 using Soenneker.Utils.Dotnet.Abstract;
 using Xunit;
 
-namespace Soenneker.Utils.Dotnet.Tests.Utils;
+namespace Soenneker.Utils.Dotnet.Tests;
 
 [Collection("Collection")]
 public class DotnetUtilTests : FixturedUnitTest
@@ -19,7 +20,10 @@ public class DotnetUtilTests : FixturedUnitTest
         _util = Resolve<IDotnetUtil>();
     }
 
-    [LocalFact]
+    [Fact]
+    public void Default() { }
+
+    [ManualFact]
     public async ValueTask Build()
     {
         string? path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -31,7 +35,7 @@ public class DotnetUtilTests : FixturedUnitTest
         result.Should().BeTrue();
     }
 
-    [LocalFact]
+    [ManualFact]
     public async ValueTask UpdatePackages()
     {
         bool result = await _util.UpdatePackages("", cancellationToken: TestContext.Current.CancellationToken);
@@ -39,7 +43,7 @@ public class DotnetUtilTests : FixturedUnitTest
         result.Should().BeTrue();
     }
 
-    [LocalFact]
+    [ManualFact]
     public async ValueTask Test()
     {
         bool result = await _util.Test("", cancellationToken: TestContext.Current.CancellationToken);
