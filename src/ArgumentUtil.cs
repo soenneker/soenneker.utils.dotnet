@@ -128,26 +128,35 @@ internal static class ArgumentUtil
     {
         var argument = $"\"{path}\"";
 
-        if (!string.IsNullOrEmpty(configuration))
+        if (!configuration.IsNullOrEmpty())
             argument += $" --configuration {configuration}";
 
-        if (!string.IsNullOrEmpty(verbosity))
+        if (!verbosity.IsNullOrEmpty())
             argument += $" -v {verbosity}";
 
         return argument;
     }
 
-    internal static string ListPackages(string path, bool outdatedOnly, bool transitive, string? verbosity)
+    internal static string ListPackages(string path, bool outdated, bool transitive, bool includePrerelease, bool vulnerable, bool deprecated, string? verbosity)
     {
         var argument = $"\"{path}\" package";
 
-        if (outdatedOnly)
+        if (deprecated)
+            argument += " --deprecated";
+
+        if (outdated)
             argument += " --outdated";
 
         if (transitive)
-            argument += " --transitive";
+            argument += " --include-transitive";
 
-        if (!string.IsNullOrEmpty(verbosity))
+        if (includePrerelease)
+            argument += " --include-prerelease";
+
+        if (vulnerable)
+            argument += " --vulnerable";
+
+        if (!verbosity.IsNullOrEmpty())
             argument += $" -v {verbosity}";
 
         return argument;
