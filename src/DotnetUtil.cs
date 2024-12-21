@@ -207,14 +207,14 @@ public class DotnetUtil : IDotnetUtil
         );
     }
 
-    public async ValueTask<List<string>> ListPackages(string path, bool outdatedOnly = false, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
+    public async ValueTask<List<string>> ListPackages(string path, bool outdatedOnly = false, bool transitive = false, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
         var packages = new List<string>();
 
         List<string> processOutput = await ExecuteCommandWithOutput(
             "list",
             path,
-            p => ArgumentUtil.ListPackages(p, outdatedOnly, verbosity),
+            p => ArgumentUtil.ListPackages(p, outdatedOnly, transitive, verbosity),
             log,
             cancellationToken
         );

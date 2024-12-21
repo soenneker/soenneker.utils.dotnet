@@ -137,16 +137,20 @@ internal static class ArgumentUtil
         return argument;
     }
 
-    internal static string ListPackages(string path, bool outdatedOnly, string? verbosity)
+    internal static string ListPackages(string path, bool outdatedOnly, bool transitive, string? verbosity)
     {
         var argument = $"\"{path}\" package";
 
         if (outdatedOnly)
             argument += " --outdated";
 
+        if (transitive)
+            argument += " --transitive";
+
         if (!string.IsNullOrEmpty(verbosity))
             argument += $" -v {verbosity}";
 
         return argument;
     }
+
 }
