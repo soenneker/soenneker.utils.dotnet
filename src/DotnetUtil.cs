@@ -151,7 +151,7 @@ public class DotnetUtil : IDotnetUtil
             _logger.LogInformation("Checking outdated packages for project ({ProjectFile})...", projectFile);
 
             // Get outdated packages for the current project
-            var outdatedPackages = await ListPackages(
+            List<KeyValuePair<string, string>> outdatedPackages = await ListPackages(
                 projectFile,
                 outdated: true,
                 log: log,
@@ -165,7 +165,7 @@ public class DotnetUtil : IDotnetUtil
                 continue;
             }
 
-            foreach (var kvp in outdatedPackages)
+            foreach (KeyValuePair<string, string> kvp in outdatedPackages)
             {
                 _logger.LogInformation("Updating package ({Package}) in project ({ProjectFile})...", kvp.Key, projectFile);
 
@@ -309,7 +309,7 @@ public class DotnetUtil : IDotnetUtil
         if (log)
             _logger.LogInformation("Executing: dotnet {Command} {Arguments} ...", command, arguments);
 
-        List<string> processOutput = await _processUtil.StartProcess("dotnet", null, $"{command} {arguments}", true, true, log, cancellationToken).NoSync();
+        List<string> processOutput = await _processUtil.Start("dotnet", null, $"{command} {arguments}", true, true, log, cancellationToken).NoSync();
 
         return processOutput;
     }

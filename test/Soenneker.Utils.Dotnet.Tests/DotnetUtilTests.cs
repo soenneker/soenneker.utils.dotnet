@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -18,9 +19,6 @@ public class DotnetUtilTests : FixturedUnitTest
     {
         _util = Resolve<IDotnetUtil>();
     }
-
-    [Fact]
-    public void Default() { }
 
     [ManualFact]
     public async ValueTask Build()
@@ -53,6 +51,6 @@ public class DotnetUtilTests : FixturedUnitTest
     [ManualFact]
     public async ValueTask GetPackages()
     {
-        var result = await _util.ListPackages("", transitive: true, cancellationToken: CancellationToken);
+        List<KeyValuePair<string, string>> result = await _util.ListPackages("", transitive: true, cancellationToken: CancellationToken);
     }
 }
