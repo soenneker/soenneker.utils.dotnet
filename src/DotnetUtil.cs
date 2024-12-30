@@ -207,7 +207,7 @@ public class DotnetUtil : IDotnetUtil
         );
     }
 
-    public async ValueTask<List<string>> ListPackages(string path, bool outdated = false, bool transitive = false, bool includePrerelease = false, bool vulnerable = false, 
+    public async ValueTask<List<string>> ListPackages(string path, bool outdated = false, bool transitive = false, bool includePrerelease = false, bool vulnerable = false,
         bool deprecated = false, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
         var packages = new List<string>();
@@ -220,14 +220,55 @@ public class DotnetUtil : IDotnetUtil
             cancellationToken
         );
 
+        bool inTransitiveSection = false;
+
         foreach (string output in processOutput)
         {
-            if (output.Contains('>', StringComparison.OrdinalIgnoreCase))
+            // Detect section headers
+            if (output.StartsWith("   Top-level Package", StringComparison.OrdinalIgnoreCase))
+            {
+                inTransitiveSection = false;
+                continue;
+            }
+            if (output.StartsWith("   Transitive Package", StringComparison.OrdinalIgnoreCase))
+            {
+                inTransitiveSection = true;
+                continue;
+            }
+
+            // Process outdated format
+            if (outdated && output.Contains('>', StringComparison.OrdinalIgnoreCase))
+            {
+                string[] parts = output.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length >= 4)
+                {
+                    string packageName = parts[1];
+                    string resolvedVersion = parts[2];
+                    string latestVersion = parts[3];
+
+                    // Add to results only if the package is outdated
+                    if (!string.Equals(resolvedVersion, latestVersion, StringComparison.OrdinalIgnoreCase))
+                    {
+                        packages.Add(packageName);
+                    }
+                }
+            }
+            // Process standard format
+            else if (!outdated && output.Contains('>', StringComparison.OrdinalIgnoreCase))
             {
                 string[] parts = output.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
                 if (parts.Length >= 2)
-                    packages.Add(parts[1]);
+                {
+                    string packageName = parts[1];
+
+                    // Include packages based on the transitive parameter
+                    if ((transitive && inTransitiveSection) || (!transitive && !inTransitiveSection))
+                    {
+                        packages.Add(packageName);
+                    }
+                }
             }
         }
 
