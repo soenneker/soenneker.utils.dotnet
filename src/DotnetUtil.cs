@@ -151,7 +151,7 @@ public class DotnetUtil : IDotnetUtil
             _logger.LogInformation("Checking outdated packages for project ({ProjectFile})...", projectFile);
 
             // Get outdated packages for the current project
-            List<string> outdatedPackages = await ListPackages(
+            var outdatedPackages = await ListPackages(
                 projectFile,
                 outdated: true,
                 log: log,
@@ -165,13 +165,13 @@ public class DotnetUtil : IDotnetUtil
                 continue;
             }
 
-            foreach (string package in outdatedPackages)
+            foreach (var kvp in outdatedPackages)
             {
-                _logger.LogInformation("Updating package ({Package}) in project ({ProjectFile})...", package, projectFile);
+                _logger.LogInformation("Updating package ({Package}) in project ({ProjectFile})...", kvp.Key, projectFile);
 
                 bool updateSuccess = await AddPackage(
                     projectFile,
-                    packageId: package,
+                    packageId: kvp.Key,
                     version: null, // Update to the latest version
                     log: log,
                     restore: true,
@@ -180,7 +180,7 @@ public class DotnetUtil : IDotnetUtil
 
                 if (!updateSuccess)
                 {
-                    _logger.LogError("Failed to update package ({Package}) in project ({ProjectFile})", package, projectFile);
+                    _logger.LogError("Failed to update package ({Package}) in project ({ProjectFile})", kvp.Key, projectFile);
                     allPackagesUpdated = false; // Mark as failure
                 }
             }
@@ -207,10 +207,18 @@ public class DotnetUtil : IDotnetUtil
         );
     }
 
-    public async ValueTask<List<string>> ListPackages(string path, bool outdated = false, bool transitive = false, bool includePrerelease = false, bool vulnerable = false,
-        bool deprecated = false, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
+    public async ValueTask<List<KeyValuePair<string, string>>> ListPackages(
+        string path,
+        bool outdated = false,
+        bool transitive = false,
+        bool includePrerelease = false,
+        bool vulnerable = false,
+        bool deprecated = false,
+        bool log = true,
+        string? verbosity = "normal",
+        CancellationToken cancellationToken = default)
     {
-        var packages = new List<string>();
+        var packages = new List<KeyValuePair<string, string>>();
 
         List<string> processOutput = await ExecuteCommandWithOutput(
             "list",
@@ -250,7 +258,7 @@ public class DotnetUtil : IDotnetUtil
                     // Add to results only if the package is outdated
                     if (!string.Equals(resolvedVersion, latestVersion, StringComparison.OrdinalIgnoreCase))
                     {
-                        packages.Add(packageName);
+                        packages.Add(new KeyValuePair<string, string>(packageName, resolvedVersion));
                     }
                 }
             }
@@ -262,11 +270,12 @@ public class DotnetUtil : IDotnetUtil
                 if (parts.Length >= 2)
                 {
                     string packageName = parts[1];
+                    string version = parts.Length > 2 ? parts[2] : string.Empty;
 
                     // Include packages based on the transitive parameter
                     if ((transitive && inTransitiveSection) || (!transitive && !inTransitiveSection))
                     {
-                        packages.Add(packageName);
+                        packages.Add(new KeyValuePair<string, string>(packageName, version));
                     }
                 }
             }

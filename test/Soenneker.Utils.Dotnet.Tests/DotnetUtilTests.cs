@@ -2,7 +2,6 @@
 using System.Reflection;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Soenneker.Facts.Local;
 using Soenneker.Facts.Manual;
 using Soenneker.Tests.FixturedUnit;
 using Soenneker.Utils.Dotnet.Abstract;
@@ -38,7 +37,7 @@ public class DotnetUtilTests : FixturedUnitTest
     [ManualFact]
     public async ValueTask UpdatePackages()
     {
-        bool result = await _util.UpdatePackages("", cancellationToken: TestContext.Current.CancellationToken);
+        bool result = await _util.UpdatePackages("", cancellationToken: CancellationToken);
 
         result.Should().BeTrue();
     }
@@ -46,8 +45,14 @@ public class DotnetUtilTests : FixturedUnitTest
     [ManualFact]
     public async ValueTask Test()
     {
-        bool result = await _util.Test("", cancellationToken: TestContext.Current.CancellationToken);
+        bool result = await _util.Test("", cancellationToken: CancellationToken);
 
         result.Should().BeFalse();
+    }
+
+    [ManualFact]
+    public async ValueTask GetPackages()
+    {
+        var result = await _util.ListPackages("", transitive: true, cancellationToken: CancellationToken);
     }
 }

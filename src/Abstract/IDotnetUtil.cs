@@ -99,7 +99,7 @@ public interface IDotnetUtil
 
     ValueTask<bool> Clean(string path, bool log = true, string? configuration = "Release", string? verbosity = "normal", CancellationToken cancellationToken = default);
 
-    ValueTask<List<string>> ListPackages(string path, bool outdated = false, bool transitive = false, bool includePrerelease = false, bool vulnerable = false,
+    ValueTask<List<KeyValuePair<string, string>>> ListPackages(string path, bool outdated = false, bool transitive = false, bool includePrerelease = false, bool vulnerable = false,
         bool deprecated = false, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default);
 
     ValueTask<bool> UpdatePackages(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default);
