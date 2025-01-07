@@ -3,6 +3,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Soenneker.Facts.Local;
 using Soenneker.Facts.Manual;
 using Soenneker.Tests.FixturedUnit;
 using Soenneker.Utils.Dotnet.Abstract;
@@ -32,7 +33,8 @@ public class DotnetUtilTests : FixturedUnitTest
         result.Should().BeTrue();
     }
 
-    [ManualFact]
+    [LocalFact]
+    //[ManualFact]
     public async ValueTask UpdatePackages()
     {
         bool result = await _util.UpdatePackages("", cancellationToken: CancellationToken);

@@ -228,17 +228,19 @@ public class DotnetUtil : IDotnetUtil
             cancellationToken
         );
 
-        bool inTransitiveSection = false;
+        var inTransitiveSection = false;
 
         foreach (string output in processOutput)
         {
+            string line = output.Trim();
+
             // Detect section headers
-            if (output.StartsWith("   Top-level Package", StringComparison.OrdinalIgnoreCase))
+            if (line.StartsWith("Top-level Package", StringComparison.OrdinalIgnoreCase))
             {
                 inTransitiveSection = false;
                 continue;
             }
-            if (output.StartsWith("   Transitive Package", StringComparison.OrdinalIgnoreCase))
+            if (line.StartsWith("Transitive Package", StringComparison.OrdinalIgnoreCase))
             {
                 inTransitiveSection = true;
                 continue;
@@ -249,16 +251,29 @@ public class DotnetUtil : IDotnetUtil
             {
                 string[] parts = output.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-                if (parts.Length >= 4)
-                {
-                    string packageName = parts[1];
-                    string resolvedVersion = parts[2];
-                    string latestVersion = parts[3];
+                string? packageName = null;
+                string? resolvedVersion = null;
+                string? latestVersion = null;
 
-                    // Add to results only if the package is outdated
+                // Different versions of dotnet
+                if (parts.Length == 4)
+                {
+                    packageName = parts[1];
+                    resolvedVersion = parts[2];
+                    latestVersion = parts[3];
+                }
+                else if (parts.Length == 5)
+                {
+                    packageName = parts[1];
+                    resolvedVersion = parts[3];
+                    latestVersion = parts[4];
+                }
+
+                if (resolvedVersion != null && latestVersion != null)
+                {
                     if (!string.Equals(resolvedVersion, latestVersion, StringComparison.OrdinalIgnoreCase))
                     {
-                        packages.Add(new KeyValuePair<string, string>(packageName, resolvedVersion));
+                        packages.Add(new KeyValuePair<string, string>(packageName!, resolvedVersion));
                     }
                 }
             }
