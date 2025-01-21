@@ -161,5 +161,4 @@ internal static class ArgumentUtil
 
         return argument;
     }
-
 }

@@ -240,6 +240,7 @@ public class DotnetUtil : IDotnetUtil
                 inTransitiveSection = false;
                 continue;
             }
+
             if (line.StartsWith("Transitive Package", StringComparison.OrdinalIgnoreCase))
             {
                 inTransitiveSection = true;
