@@ -2,7 +2,7 @@
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
-using FluentAssertions;
+using AwesomeAssertions;
 using Soenneker.Facts.Local;
 using Soenneker.Facts.Manual;
 using Soenneker.Tests.FixturedUnit;
