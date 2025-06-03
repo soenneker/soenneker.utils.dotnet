@@ -10,7 +10,7 @@ using Soenneker.Utils.Process.Abstract;
 namespace Soenneker.Utils.Dotnet;
 
 /// <inheritdoc cref="IDotnetUtil"/>
-public class DotnetUtil : IDotnetUtil
+public sealed class DotnetUtil : IDotnetUtil
 {
     private readonly ILogger<DotnetUtil> _logger;
     private readonly IProcessUtil _processUtil;
@@ -21,112 +21,66 @@ public class DotnetUtil : IDotnetUtil
         _processUtil = processUtil;
     }
 
-    public ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal", bool? build = true,
-        CancellationToken cancellationToken = default)
+    public ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal",
+        bool? build = true, CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand(
-            "run",
-            path,
-            p => ArgumentUtil.Run(p, framework, configuration, verbosity, build),
+        return ExecuteCommand("run", path, p => ArgumentUtil.Run(p, framework, configuration, verbosity, build),
             _ => true, // No specific success criteria for `dotnet run`
-            null,
-            log,
-            cancellationToken
-        );
+            null, log, cancellationToken);
     }
 
     public ValueTask<bool> Restore(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand(
-            "restore",
-            path,
-            p => ArgumentUtil.Restore(p, verbosity),
-            output => output.Contains("Restore completed", StringComparison.OrdinalIgnoreCase),
-            null,
-            log,
-            cancellationToken
-        );
+        return ExecuteCommand("restore", path, p => ArgumentUtil.Restore(p, verbosity),
+            output => output.Contains("Restore completed", StringComparison.OrdinalIgnoreCase), null, log, cancellationToken);
     }
 
-    public ValueTask<bool> Build(string path, bool log = true, string? configuration = "Release", bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
+    public ValueTask<bool> Build(string path, bool log = true, string? configuration = "Release", bool? restore = true, string? verbosity = "normal",
+        CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand(
-            "build",
-            path,
-            p => ArgumentUtil.Build(p, configuration, restore, verbosity),
-            output => output.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase),
-            null,
-            log,
-            cancellationToken
-        );
+        return ExecuteCommand("build", path, p => ArgumentUtil.Build(p, configuration, restore, verbosity),
+            output => output.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase), null, log, cancellationToken);
     }
 
     public ValueTask<bool> Test(string path, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand(
-            "test",
-            path,
-            p => ArgumentUtil.Test(p, restore, verbosity),
+        return ExecuteCommand("test", path, p => ArgumentUtil.Test(p, restore, verbosity),
             output =>
             {
-                return output.Contains("test succeeded", StringComparison.OrdinalIgnoreCase)
-                       || output.Contains("Passed!", StringComparison.OrdinalIgnoreCase)
-                       || output.Contains("Test Run Successful.", StringComparison.OrdinalIgnoreCase);
+                return output.Contains("test succeeded", StringComparison.OrdinalIgnoreCase) ||
+                       output.Contains("Passed!", StringComparison.OrdinalIgnoreCase) ||
+                       output.Contains("Test Run Successful.", StringComparison.OrdinalIgnoreCase);
             },
             output =>
             {
-                return output.Contains("build failed", StringComparison.OrdinalIgnoreCase)
-                       || output.Contains("test failed", StringComparison.OrdinalIgnoreCase);
-            },
-            log,
-            cancellationToken
-        );
+                return output.Contains("build failed", StringComparison.OrdinalIgnoreCase) ||
+                       output.Contains("test failed", StringComparison.OrdinalIgnoreCase);
+            }, log, cancellationToken);
     }
 
-    public ValueTask<bool> Pack(string path, string version, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false, string? output = ".",
-        string? verbosity = "normal", CancellationToken cancellationToken = default)
+    public ValueTask<bool> Pack(string path, string version, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false,
+        string? output = ".", string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand(
-            "pack",
-            path,
-            p => ArgumentUtil.Pack(p, version, configuration, build, restore, output, verbosity),
-            o => o.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase),
-            null,
-            log,
-            cancellationToken
-        );
+        return ExecuteCommand("pack", path, p => ArgumentUtil.Pack(p, version, configuration, build, restore, output, verbosity),
+            o => o.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase), null, log, cancellationToken);
     }
 
     public ValueTask<bool> RemovePackage(string path, string packageId, bool log = true, bool? restore = true, CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand(
-            "remove",
-            path,
-            p => ArgumentUtil.RemovePackage(p, packageId, restore),
+        return ExecuteCommand("remove", path, p => ArgumentUtil.RemovePackage(p, packageId, restore),
             output => output.Contains("Successfully removed", StringComparison.OrdinalIgnoreCase) ||
-                      output.Contains("does not contain", StringComparison.OrdinalIgnoreCase),
-            null,
-            log,
-            cancellationToken
-        );
+                      output.Contains("does not contain", StringComparison.OrdinalIgnoreCase), null, log, cancellationToken);
     }
 
     public ValueTask<bool> AddPackage(string projectPath, string packageId, string? version = null, bool log = true, bool? restore = true,
         CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand(
-            "add",
-            projectPath,
-            path => ArgumentUtil.AddPackage(path, packageId, version, restore), output =>
-            {
-                // Check for success indicators in the output
-                return output.Contains("PackageReference for package", StringComparison.OrdinalIgnoreCase)
-                       && output.Contains("updated in file", StringComparison.OrdinalIgnoreCase);
-            },
-            null,
-            log,
-            cancellationToken
-        );
+        return ExecuteCommand("add", projectPath, path => ArgumentUtil.AddPackage(path, packageId, version, restore), output =>
+        {
+            // Check for success indicators in the output
+            return output.Contains("PackageReference for package", StringComparison.OrdinalIgnoreCase) &&
+                   output.Contains("updated in file", StringComparison.OrdinalIgnoreCase);
+        }, null, log, cancellationToken);
     }
 
     public async ValueTask<bool> UpdatePackages(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
@@ -152,12 +106,8 @@ public class DotnetUtil : IDotnetUtil
 
             // Get outdated packages for the current project
             List<KeyValuePair<string, string>> outdatedPackages = await ListPackages(
-                projectFile,
-                outdated: true,
-                log: log,
-                verbosity: verbosity,
-                cancellationToken: cancellationToken
-            ).NoSync();
+                    projectFile, outdated: true, log: log, verbosity: verbosity, cancellationToken: cancellationToken)
+                .NoSync();
 
             if (outdatedPackages.Count == 0)
             {
@@ -169,14 +119,9 @@ public class DotnetUtil : IDotnetUtil
             {
                 _logger.LogInformation("Updating package ({Package}) in project ({ProjectFile})...", kvp.Key, projectFile);
 
-                bool updateSuccess = await AddPackage(
-                    projectFile,
-                    packageId: kvp.Key,
-                    version: null, // Update to the latest version
-                    log: log,
-                    restore: true,
-                    cancellationToken: cancellationToken
-                ).NoSync();
+                bool updateSuccess = await AddPackage(projectFile, packageId: kvp.Key, version: null, // Update to the latest version
+                        log: log, restore: true, cancellationToken: cancellationToken)
+                    .NoSync();
 
                 if (!updateSuccess)
                 {
@@ -194,39 +139,21 @@ public class DotnetUtil : IDotnetUtil
         return allPackagesUpdated;
     }
 
-    public ValueTask<bool> Clean(string path, bool log = true, string? configuration = "Release", string? verbosity = "normal", CancellationToken cancellationToken = default)
+    public ValueTask<bool> Clean(string path, bool log = true, string? configuration = "Release", string? verbosity = "normal",
+        CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand(
-            "clean",
-            path,
-            p => ArgumentUtil.Clean(p, configuration, verbosity),
-            output => output.Contains("Cleaned", StringComparison.OrdinalIgnoreCase),
-            null,
-            log,
-            cancellationToken
-        );
+        return ExecuteCommand("clean", path, p => ArgumentUtil.Clean(p, configuration, verbosity),
+            output => output.Contains("Cleaned", StringComparison.OrdinalIgnoreCase), null, log, cancellationToken);
     }
 
-    public async ValueTask<List<KeyValuePair<string, string>>> ListPackages(
-        string path,
-        bool outdated = false,
-        bool transitive = false,
-        bool includePrerelease = false,
-        bool vulnerable = false,
-        bool deprecated = false,
-        bool log = true,
-        string? verbosity = "normal",
+    public async ValueTask<List<KeyValuePair<string, string>>> ListPackages(string path, bool outdated = false, bool transitive = false,
+        bool includePrerelease = false, bool vulnerable = false, bool deprecated = false, bool log = true, string? verbosity = "normal",
         CancellationToken cancellationToken = default)
     {
         var packages = new List<KeyValuePair<string, string>>();
 
-        List<string> processOutput = await ExecuteCommandWithOutput(
-            "list",
-            path,
-            p => ArgumentUtil.ListPackages(p, outdated, transitive, includePrerelease, vulnerable, deprecated, verbosity),
-            log,
-            cancellationToken
-        );
+        List<string> processOutput = await ExecuteCommandWithOutput("list", path,
+            p => ArgumentUtil.ListPackages(p, outdated, transitive, includePrerelease, vulnerable, deprecated, verbosity), log, cancellationToken);
 
         var inTransitiveSection = false;
 
@@ -300,8 +227,8 @@ public class DotnetUtil : IDotnetUtil
         return packages;
     }
 
-    public async ValueTask<bool> ExecuteCommand(string command, string projectPath, Func<string, string> argumentBuilder,
-        Func<string, bool> successCriteria, Func<string, bool>? failureCriteria = null, bool log = true, CancellationToken cancellationToken = default)
+    public async ValueTask<bool> ExecuteCommand(string command, string projectPath, Func<string, string> argumentBuilder, Func<string, bool> successCriteria,
+        Func<string, bool>? failureCriteria = null, bool log = true, CancellationToken cancellationToken = default)
     {
         List<string> processOutput = await ExecuteCommandWithOutput(command, projectPath, argumentBuilder, log, cancellationToken).NoSync();
 
@@ -325,7 +252,7 @@ public class DotnetUtil : IDotnetUtil
         if (log)
             _logger.LogInformation("Executing: dotnet {Command} {Arguments} ...", command, arguments);
 
-        List<string> processOutput = await _processUtil.Start("dotnet", null, $"{command} {arguments}", true, true, log, cancellationToken).NoSync();
+        List<string> processOutput = await _processUtil.Start("dotnet", null, $"{command} {arguments}", true, true, null, log, cancellationToken).NoSync();
 
         return processOutput;
     }
