@@ -252,8 +252,6 @@ public sealed class DotnetUtil : IDotnetUtil
         if (log)
             _logger.LogInformation("Executing: dotnet {Command} {Arguments} ...", command, arguments);
 
-        List<string> processOutput = await _processUtil.Start("dotnet", null, $"{command} {arguments}", true, true, null, log, cancellationToken).NoSync();
-
-        return processOutput;
+        return await _processUtil.Start("dotnet", null, $"{command} {arguments}", true, true, null, log, cancellationToken: cancellationToken).NoSync();
     }
 }

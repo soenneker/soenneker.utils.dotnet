@@ -15,8 +15,7 @@ public static class DotnetUtilRegistrar
     /// </summary>
     public static IServiceCollection AddDotnetUtilAsSingleton(this IServiceCollection services)
     {
-        services.AddProcessUtilAsSingleton();
-        services.TryAddSingleton<IDotnetUtil, DotnetUtil>();
+        services.AddProcessUtilAsSingleton().TryAddSingleton<IDotnetUtil, DotnetUtil>();
         return services;
     }
 
@@ -25,8 +24,7 @@ public static class DotnetUtilRegistrar
     /// </summary>
     public static IServiceCollection AddDotnetUtilAsScoped(this IServiceCollection services)
     {
-        services.AddProcessUtilAsScoped();
-        services.TryAddScoped<IDotnetUtil, DotnetUtil>();
+        services.AddProcessUtilAsScoped().TryAddScoped<IDotnetUtil, DotnetUtil>();
         return services;
     }
 }
