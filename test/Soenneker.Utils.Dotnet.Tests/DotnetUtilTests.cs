@@ -36,7 +36,7 @@ public class DotnetUtilTests : FixturedUnitTest
     [LocalFact]
     public async ValueTask GetDependencySetsLocal()
     {
-        (List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive) result = await _util.GetDependencySetsLocal(@"C:\git\Soenneker\Utils\soenneker.utils.test.phonenumber\test\Soenneker.Utils.Test.PhoneNumber.Tests\Soenneker.Utils.Test.PhoneNumber.Tests.csproj", CancellationToken);
+        (List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive) result = await _util.GetDependencySetsLocal("", CancellationToken);
     }
 
     [LocalFact]
