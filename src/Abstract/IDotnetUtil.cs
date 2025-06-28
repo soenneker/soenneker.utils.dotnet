@@ -127,5 +127,5 @@ public interface IDotnetUtil
     /// dependency sets using the fast JSON route (no NuGet.org traffic).
     /// You’re free to use it elsewhere if you like.
     /// </summary>
-    ValueTask<(HashSet<string> Direct, HashSet<string> Transitive)> ListPackagesJson(string csprojPath, CancellationToken cancellationToken = default);
+    ValueTask<(List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive)> GetDependencySetsLocal(string csproj, CancellationToken cancellationToken = default);
 }

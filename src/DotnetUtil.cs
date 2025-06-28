@@ -37,32 +37,33 @@ public sealed class DotnetUtil : IDotnetUtil
         return string.Join(Environment.NewLine, lines);
     }
 
-    public async ValueTask<(HashSet<string> Direct, HashSet<string> Transitive)> ListPackagesJson(string csprojPath,
+    public async ValueTask<(List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive)> GetDependencySetsLocal(string csproj,
         CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(csprojPath))
-            throw new FileNotFoundException("Project not found", csprojPath);
-
-        string json = await Execute($"package list \"{csprojPath}\" --include-transitive --format json", cancellationToken);
+        string json = await Execute($"list \"{csproj}\" package --include-transitive --format json", cancellationToken);
 
         JsonNode node = JsonNode.Parse(json)!;
 
-        var direct = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var trans = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var direct = new List<KeyValuePair<string, string>>();
+        var transitive = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (JsonNode? pkg in node["topLevelPackages"]!.AsArray())
         {
             if (pkg != null)
-                direct.Add(pkg["name"]!.GetValue<string>());
+            {
+                var id = pkg["name"]!.GetValue<string>();
+                var ver = pkg["version"]!.GetValue<string>();
+                direct.Add(new(id, ver));
+            }
         }
 
         foreach (JsonNode? pkg in node["transitivePackages"]!.AsArray())
         {
             if (pkg != null)
-                trans.Add(pkg["name"]!.GetValue<string>());
+                transitive.Add(pkg["name"]!.GetValue<string>());
         }
 
-        return (direct, trans);
+        return (direct, transitive);
     }
 
     public ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal",
