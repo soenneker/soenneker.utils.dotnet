@@ -137,7 +137,8 @@ internal static class ArgumentUtil
         return argument;
     }
 
-    internal static string ListPackages(string path, bool outdated, bool transitive, bool includePrerelease, bool vulnerable, bool deprecated, string? verbosity)
+    internal static string ListPackages(string path, bool outdated, bool transitive, bool includePrerelease, bool vulnerable, bool deprecated,
+        string? verbosity)
     {
         var argument = $"\"{path}\" package";
 

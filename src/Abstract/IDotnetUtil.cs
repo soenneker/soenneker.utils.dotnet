@@ -119,4 +119,13 @@ public interface IDotnetUtil
         Func<string, bool> successCriteria, Func<string, bool>? failureCriteria = null, bool log = true, CancellationToken cancellationToken = default);
 
     ValueTask<List<string>> ExecuteCommandWithOutput(string command, string projectPath, Func<string, string> argumentBuilder, bool log = true, CancellationToken cancellationToken = default);
+
+    ValueTask<string> Execute(string arguments, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Convenience helper that gives you **both** the direct and transitive
+    /// dependency sets using the fast JSON route (no NuGet.org traffic).
+    /// You’re free to use it elsewhere if you like.
+    /// </summary>
+    ValueTask<(HashSet<string> Direct, HashSet<string> Transitive)> ListPackagesJson(string csprojPath, CancellationToken cancellationToken = default);
 }

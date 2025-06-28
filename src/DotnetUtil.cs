@@ -1,11 +1,13 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Soenneker.Extensions.ValueTask;
 using Soenneker.Utils.Dotnet.Abstract;
 using Soenneker.Utils.Process.Abstract;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.Json.Nodes;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Soenneker.Utils.Dotnet;
 
@@ -15,15 +17,52 @@ public sealed class DotnetUtil : IDotnetUtil
     private readonly ILogger<DotnetUtil> _logger;
     private readonly IProcessUtil _processUtil;
 
-    private readonly Dictionary<string, string> _environmentalVars = new() { 
-        { "DOTNET_CLI_UI_LANGUAGE", "en" },
-        { "DOTNET_CLI_TELEMETRY_OPTOUT", "1"}
+    private readonly Dictionary<string, string> _environmentalVars = new()
+    {
+        {"DOTNET_CLI_UI_LANGUAGE", "en"},
+        {"DOTNET_CLI_TELEMETRY_OPTOUT", "1"}
     };
 
     public DotnetUtil(ILogger<DotnetUtil> logger, IProcessUtil processUtil)
     {
         _logger = logger;
         _processUtil = processUtil;
+    }
+
+    public async ValueTask<string> Execute(string arguments, CancellationToken cancellationToken = default)
+    {
+        List<string> lines = await _processUtil.Start("dotnet", arguments: arguments, log: false, environmentalVars: _environmentalVars,
+            cancellationToken: cancellationToken);
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    public async ValueTask<(HashSet<string> Direct, HashSet<string> Transitive)> ListPackagesJson(string csprojPath,
+        CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(csprojPath))
+            throw new FileNotFoundException("Project not found", csprojPath);
+
+        string json = await Execute($"package list \"{csprojPath}\" --include-transitive --format json", cancellationToken);
+
+        JsonNode node = JsonNode.Parse(json)!;
+
+        var direct = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var trans = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (JsonNode? pkg in node["topLevelPackages"]!.AsArray())
+        {
+            if (pkg != null)
+                direct.Add(pkg["name"]!.GetValue<string>());
+        }
+
+        foreach (JsonNode? pkg in node["transitivePackages"]!.AsArray())
+        {
+            if (pkg != null)
+                trans.Add(pkg["name"]!.GetValue<string>());
+        }
+
+        return (direct, trans);
     }
 
     public ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal",
@@ -257,6 +296,7 @@ public sealed class DotnetUtil : IDotnetUtil
         if (log)
             _logger.LogInformation("Executing: dotnet {Command} {Arguments} ...", command, arguments);
 
-        return _processUtil.Start("dotnet", null, $"{command} {arguments}", true, true, null, log, environmentalVars: _environmentalVars, cancellationToken: cancellationToken);
+        return _processUtil.Start("dotnet", null, $"{command} {arguments}", true, true, null, log, environmentalVars: _environmentalVars,
+            cancellationToken: cancellationToken);
     }
 }
