@@ -15,6 +15,11 @@ public sealed class DotnetUtil : IDotnetUtil
     private readonly ILogger<DotnetUtil> _logger;
     private readonly IProcessUtil _processUtil;
 
+    private readonly Dictionary<string, string> _environmentalVars = new() { 
+        { "DOTNET_CLI_UI_LANGUAGE", "en" },
+        { "DOTNET_CLI_TELEMETRY_OPTOUT", "1"}
+    };
+
     public DotnetUtil(ILogger<DotnetUtil> logger, IProcessUtil processUtil)
     {
         _logger = logger;
@@ -244,7 +249,7 @@ public sealed class DotnetUtil : IDotnetUtil
         return false;
     }
 
-    public async ValueTask<List<string>> ExecuteCommandWithOutput(string command, string projectPath, Func<string, string> argumentBuilder, bool log = true,
+    public ValueTask<List<string>> ExecuteCommandWithOutput(string command, string projectPath, Func<string, string> argumentBuilder, bool log = true,
         CancellationToken cancellationToken = default)
     {
         string arguments = argumentBuilder(projectPath);
@@ -252,6 +257,6 @@ public sealed class DotnetUtil : IDotnetUtil
         if (log)
             _logger.LogInformation("Executing: dotnet {Command} {Arguments} ...", command, arguments);
 
-        return await _processUtil.Start("dotnet", null, $"{command} {arguments}", true, true, null, log, cancellationToken: cancellationToken).NoSync();
+        return _processUtil.Start("dotnet", null, $"{command} {arguments}", true, true, null, log, environmentalVars: _environmentalVars, cancellationToken: cancellationToken);
     }
 }
