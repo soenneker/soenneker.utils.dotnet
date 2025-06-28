@@ -41,39 +41,42 @@ public sealed class DotnetUtil : IDotnetUtil
     public async ValueTask<(List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive)> GetDependencySetsLocal(string csproj,
         CancellationToken cancellationToken = default)
     {
-        // run: dotnet list <csproj> package --include-transitive --format json
+        var direct = new List<KeyValuePair<string, string>>();
+        var transitive = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         string json = await Execute($"list \"{csproj}\" package --include-transitive --format json", cancellationToken);
 
         using JsonDocument doc = JsonDocument.Parse(json);
 
-        var direct = new List<KeyValuePair<string, string>>();
-        var transitive = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        // dotnet CLI nests data under projects[] → frameworks[]
         if (!doc.RootElement.TryGetProperty("projects", out JsonElement projects))
-            return (direct, transitive); // nothing restored
+            return (direct, transitive); // dotnet list returned nothing useful
 
-        foreach (JsonElement project in projects.EnumerateArray())
+        foreach (JsonElement proj in projects.EnumerateArray())
         {
-            if (!project.TryGetProperty("frameworks", out JsonElement frameworks))
+            if (!proj.TryGetProperty("frameworks", out JsonElement frameworks))
                 continue;
 
             foreach (JsonElement fw in frameworks.EnumerateArray())
             {
-                // top-level (direct) packages
-                if (fw.TryGetProperty("topLevelPackages", out JsonElement topLevel))
+                if (fw.TryGetProperty("topLevelPackages", out JsonElement top))
                 {
-                    foreach (JsonElement pkg in topLevel.EnumerateArray())
+                    foreach (JsonElement p in top.EnumerateArray())
                     {
-                        direct.Add(new(pkg.GetProperty("id").GetString()!, pkg.GetProperty("resolvedVersion").GetString()!));
+                        string id = p.TryGetProperty("id", out JsonElement idProp) ? idProp.GetString()! : p.GetProperty("name").GetString()!;
+
+                        string ver = p.TryGetProperty("resolvedVersion", out JsonElement verProp) ? verProp.GetString()! : p.GetProperty("version").GetString()!;
+
+                        direct.Add(new(id, ver));
                     }
                 }
 
-                // transitive packages
                 if (fw.TryGetProperty("transitivePackages", out JsonElement trans))
                 {
-                    foreach (JsonElement pkg in trans.EnumerateArray())
-                        transitive.Add(pkg.GetProperty("id").GetString()!);
+                    foreach (JsonElement p in trans.EnumerateArray())
+                    {
+                        string id = p.TryGetProperty("id", out JsonElement idProp) ? idProp.GetString()! : p.GetProperty("name").GetString()!;
+                        transitive.Add(id);
+                    }
                 }
             }
         }
