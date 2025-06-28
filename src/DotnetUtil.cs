@@ -1,10 +1,11 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Soenneker.Extensions.ValueTask;
 using Soenneker.Utils.Dotnet.Abstract;
 using Soenneker.Utils.Process.Abstract;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,27 +41,41 @@ public sealed class DotnetUtil : IDotnetUtil
     public async ValueTask<(List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive)> GetDependencySetsLocal(string csproj,
         CancellationToken cancellationToken = default)
     {
+        // run: dotnet list <csproj> package --include-transitive --format json
         string json = await Execute($"list \"{csproj}\" package --include-transitive --format json", cancellationToken);
 
-        JsonNode node = JsonNode.Parse(json)!;
+        using JsonDocument doc = JsonDocument.Parse(json);
 
         var direct = new List<KeyValuePair<string, string>>();
         var transitive = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (JsonNode? pkg in node["topLevelPackages"]!.AsArray())
-        {
-            if (pkg != null)
-            {
-                var id = pkg["name"]!.GetValue<string>();
-                var ver = pkg["version"]!.GetValue<string>();
-                direct.Add(new(id, ver));
-            }
-        }
+        // dotnet CLI nests data under projects[] → frameworks[]
+        if (!doc.RootElement.TryGetProperty("projects", out JsonElement projects))
+            return (direct, transitive); // nothing restored
 
-        foreach (JsonNode? pkg in node["transitivePackages"]!.AsArray())
+        foreach (JsonElement project in projects.EnumerateArray())
         {
-            if (pkg != null)
-                transitive.Add(pkg["name"]!.GetValue<string>());
+            if (!project.TryGetProperty("frameworks", out JsonElement frameworks))
+                continue;
+
+            foreach (JsonElement fw in frameworks.EnumerateArray())
+            {
+                // top-level (direct) packages
+                if (fw.TryGetProperty("topLevelPackages", out JsonElement topLevel))
+                {
+                    foreach (JsonElement pkg in topLevel.EnumerateArray())
+                    {
+                        direct.Add(new(pkg.GetProperty("id").GetString()!, pkg.GetProperty("resolvedVersion").GetString()!));
+                    }
+                }
+
+                // transitive packages
+                if (fw.TryGetProperty("transitivePackages", out JsonElement trans))
+                {
+                    foreach (JsonElement pkg in trans.EnumerateArray())
+                        transitive.Add(pkg.GetProperty("id").GetString()!);
+                }
+            }
         }
 
         return (direct, transitive);

@@ -34,6 +34,12 @@ public class DotnetUtilTests : FixturedUnitTest
     }
 
     [LocalFact]
+    public async ValueTask GetDependencySetsLocal()
+    {
+        var result = await _util.GetDependencySetsLocal(@"", CancellationToken);
+    }
+
+    [LocalFact]
     //[ManualFact]
     public async ValueTask UpdatePackages()
     {
