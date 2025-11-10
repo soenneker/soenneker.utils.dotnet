@@ -4,11 +4,10 @@ using Soenneker.Utils.Dotnet.Abstract;
 using Soenneker.Utils.Process.Abstract;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
+using Soenneker.Extensions.String;
 
 namespace Soenneker.Utils.Dotnet;
 
@@ -20,8 +19,8 @@ public sealed class DotnetUtil : IDotnetUtil
 
     private readonly Dictionary<string, string> _environmentalVars = new()
     {
-        {"DOTNET_CLI_UI_LANGUAGE", "en"},
-        {"DOTNET_CLI_TELEMETRY_OPTOUT", "1"}
+        { "DOTNET_CLI_UI_LANGUAGE", "en" },
+        { "DOTNET_CLI_TELEMETRY_OPTOUT", "1" }
     };
 
     public DotnetUtil(ILogger<DotnetUtil> logger, IProcessUtil processUtil)
@@ -64,9 +63,11 @@ public sealed class DotnetUtil : IDotnetUtil
                     {
                         string id = p.TryGetProperty("id", out JsonElement idProp) ? idProp.GetString()! : p.GetProperty("name").GetString()!;
 
-                        string ver = p.TryGetProperty("resolvedVersion", out JsonElement verProp) ? verProp.GetString()! : p.GetProperty("version").GetString()!;
+                        string ver = p.TryGetProperty("resolvedVersion", out JsonElement verProp)
+                            ? verProp.GetString()!
+                            : p.GetProperty("version").GetString()!;
 
-                        direct.Add(new(id, ver));
+                        direct.Add(new KeyValuePair<string, string>(id, ver));
                     }
                 }
 
@@ -169,8 +170,7 @@ public sealed class DotnetUtil : IDotnetUtil
 
             // Get outdated packages for the current project
             List<KeyValuePair<string, string>> outdatedPackages = await ListPackages(
-                    projectFile, outdated: true, log: log, verbosity: verbosity, cancellationToken: cancellationToken)
-                .NoSync();
+                projectFile, outdated: true, log: log, verbosity: verbosity, cancellationToken: cancellationToken).NoSync();
 
             if (outdatedPackages.Count == 0)
             {
@@ -183,8 +183,7 @@ public sealed class DotnetUtil : IDotnetUtil
                 _logger.LogInformation("Updating package ({Package}) in project ({ProjectFile})...", kvp.Key, projectFile);
 
                 bool updateSuccess = await AddPackage(projectFile, packageId: kvp.Key, version: null, // Update to the latest version
-                        log: log, restore: true, cancellationToken: cancellationToken)
-                    .NoSync();
+                    log: log, restore: true, cancellationToken: cancellationToken).NoSync();
 
                 if (!updateSuccess)
                 {
@@ -262,7 +261,7 @@ public sealed class DotnetUtil : IDotnetUtil
 
                 if (resolvedVersion != null && latestVersion != null)
                 {
-                    if (!string.Equals(resolvedVersion, latestVersion, StringComparison.OrdinalIgnoreCase))
+                    if (!resolvedVersion.EqualsIgnoreCase(latestVersion))
                     {
                         packages.Add(new KeyValuePair<string, string>(packageName!, resolvedVersion));
                     }
@@ -315,7 +314,7 @@ public sealed class DotnetUtil : IDotnetUtil
         if (log)
             _logger.LogInformation("Executing: dotnet {Command} {Arguments} ...", command, arguments);
 
-        return _processUtil.Start("dotnet", null, $"{command} {arguments}", true, true, null, log, environmentalVars: _environmentalVars,
+        return _processUtil.Start("dotnet", null, $"{command} {arguments}", false, true, null, log, environmentalVars: _environmentalVars,
             cancellationToken: cancellationToken);
     }
 }
