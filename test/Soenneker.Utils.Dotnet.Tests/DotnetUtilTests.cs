@@ -21,6 +21,11 @@ public class DotnetUtilTests : FixturedUnitTest
         _util = Resolve<IDotnetUtil>();
     }
 
+    [Fact]
+    public void Default()
+    {
+    }
+
     [ManualFact]
     public async ValueTask Build()
     {
