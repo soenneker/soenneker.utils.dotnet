@@ -39,7 +39,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Soenneker.Utils.PooledStringBuilders" Version="4.0.15" />
+        <PackageReference Include="Soenneker.Utils.PooledStringBuilders" Version="4.0.16" />
         <PackageReference Include="Soenneker.Utils.Process" Version="4.0.1425" />
     </ItemGroup>
 </Project>
