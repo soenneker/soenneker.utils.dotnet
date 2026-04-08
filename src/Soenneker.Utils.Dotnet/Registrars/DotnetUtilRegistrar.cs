@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Soenneker.Utils.Directory.Registrars;
 using Soenneker.Utils.Dotnet.Abstract;
+using Soenneker.Utils.File.Registrars;
 using Soenneker.Utils.Process.Registrars;
 
 namespace Soenneker.Utils.Dotnet.Registrars;
@@ -15,7 +17,10 @@ public static class DotnetUtilRegistrar
     /// </summary>
     public static IServiceCollection AddDotnetUtilAsSingleton(this IServiceCollection services)
     {
-        services.AddProcessUtilAsSingleton().TryAddSingleton<IDotnetUtil, DotnetUtil>();
+        services.AddProcessUtilAsSingleton()
+                .AddFileUtilAsSingleton()
+                .AddDirectoryUtilAsSingleton()
+                .TryAddSingleton<IDotnetUtil, DotnetUtil>();
         return services;
     }
 
@@ -24,7 +29,10 @@ public static class DotnetUtilRegistrar
     /// </summary>
     public static IServiceCollection AddDotnetUtilAsScoped(this IServiceCollection services)
     {
-        services.AddProcessUtilAsScoped().TryAddScoped<IDotnetUtil, DotnetUtil>();
+        services.AddProcessUtilAsScoped()
+                .AddFileUtilAsScoped()
+                .AddDirectoryUtilAsScoped()
+                .TryAddScoped<IDotnetUtil, DotnetUtil>();
         return services;
     }
 }

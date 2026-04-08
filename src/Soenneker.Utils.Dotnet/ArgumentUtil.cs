@@ -1,7 +1,6 @@
 ﻿using Soenneker.Extensions.String;
 using Soenneker.Utils.PooledStringBuilders;
-
-namespace Soenneker.Utils.Dotnet;
+using System.Collections.Generic;
 
 internal static class ArgumentUtil
 {
@@ -9,7 +8,9 @@ internal static class ArgumentUtil
     {
         using var sb = new PooledStringBuilder();
 
-        sb.Append('"'); sb.Append(path); sb.Append('"');
+        sb.Append("run \"");
+        sb.Append(path);
+        sb.Append('"');
 
         if (framework != null)
         {
@@ -39,7 +40,9 @@ internal static class ArgumentUtil
     {
         using var sb = new PooledStringBuilder();
 
-        sb.Append('"'); sb.Append(path); sb.Append('"');
+        sb.Append("restore \"");
+        sb.Append(path);
+        sb.Append('"');
 
         if (verbosity != null)
         {
@@ -54,7 +57,9 @@ internal static class ArgumentUtil
     {
         using var sb = new PooledStringBuilder();
 
-        sb.Append('"'); sb.Append(path); sb.Append('"');
+        sb.Append("build \"");
+        sb.Append(path);
+        sb.Append('"');
 
         if (configuration != null)
         {
@@ -78,7 +83,9 @@ internal static class ArgumentUtil
     {
         using var sb = new PooledStringBuilder();
 
-        sb.Append('"'); sb.Append(path); sb.Append('"');
+        sb.Append("test \"");
+        sb.Append(path);
+        sb.Append('"');
 
         if (restore.HasValue && !restore.Value)
             sb.Append(" --no-restore");
@@ -96,7 +103,9 @@ internal static class ArgumentUtil
     {
         using var sb = new PooledStringBuilder();
 
-        sb.Append('"'); sb.Append(path); sb.Append('"');
+        sb.Append("pack \"");
+        sb.Append(path);
+        sb.Append('"');
 
         sb.Append(" -p:PackageVersion=");
         sb.Append(version);
@@ -133,7 +142,10 @@ internal static class ArgumentUtil
     {
         using var sb = new PooledStringBuilder();
 
-        sb.Append('"'); sb.Append(path); sb.Append('"');
+        sb.Append("add \"");
+        sb.Append(path);
+        sb.Append('"');
+
         sb.Append(" package \"");
         sb.Append(packageId);
         sb.Append('"');
@@ -154,7 +166,10 @@ internal static class ArgumentUtil
     {
         using var sb = new PooledStringBuilder();
 
-        sb.Append('"'); sb.Append(path); sb.Append('"');
+        sb.Append("remove \"");
+        sb.Append(path);
+        sb.Append('"');
+
         sb.Append(" package \"");
         sb.Append(packageId);
         sb.Append('"');
@@ -169,7 +184,9 @@ internal static class ArgumentUtil
     {
         using var sb = new PooledStringBuilder();
 
-        sb.Append('"'); sb.Append(path); sb.Append('"');
+        sb.Append("clean \"");
+        sb.Append(path);
+        sb.Append('"');
 
         if (!configuration.IsNullOrEmpty())
         {
@@ -186,35 +203,44 @@ internal static class ArgumentUtil
         return sb.ToString();
     }
 
-    internal static string ListPackages(string path, bool outdated, bool transitive, bool includePrerelease, bool vulnerable, bool deprecated,
-        string? verbosity)
+    internal static string ListPackages(string path, bool includeTransitive, bool outdated, bool includePrerelease, bool vulnerable, bool deprecated,
+        bool noRestore, string? verbosity)
     {
-        using var sb = new PooledStringBuilder();
-
-        sb.Append('"'); sb.Append(path); sb.Append('"');
-        sb.Append(" package");
-
-        if (deprecated)
-            sb.Append(" --deprecated");
-
-        if (outdated)
-            sb.Append(" --outdated");
-
-        if (transitive)
-            sb.Append(" --include-transitive");
-
-        if (includePrerelease)
-            sb.Append(" --include-prerelease");
-
-        if (vulnerable)
-            sb.Append(" --vulnerable");
-
-        if (!verbosity.IsNullOrEmpty())
+        var parts = new List<string>(12)
         {
-            sb.Append(" -v ");
-            sb.Append(verbosity);
+            "list",
+            $"\"{path}\"",
+            "package",
+            "--format",
+            "json",
+            "--output-version",
+            "1"
+        };
+
+        if (verbosity.HasContent())
+        {
+            parts.Add("--verbosity");
+            parts.Add(verbosity!);
         }
 
-        return sb.ToString();
+        if (includeTransitive)
+            parts.Add("--include-transitive");
+
+        if (outdated)
+            parts.Add("--outdated");
+
+        if (includePrerelease)
+            parts.Add("--include-prerelease");
+
+        if (vulnerable)
+            parts.Add("--vulnerable");
+
+        if (deprecated)
+            parts.Add("--deprecated");
+
+        if (noRestore)
+            parts.Add("--no-restore");
+
+        return string.Join(' ', parts);
     }
 }

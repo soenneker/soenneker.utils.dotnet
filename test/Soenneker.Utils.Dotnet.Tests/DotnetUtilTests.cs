@@ -29,41 +29,52 @@ public class DotnetUtilTests : FixturedUnitTest
     [ManualFact]
     public async ValueTask Build()
     {
-        string? path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        string? path = System.IO.Path.GetDirectoryName(Assembly.GetExecutingAssembly()
+                                                               .Location);
 
-        string proj = Path.Combine(path!, "..", "..", "..", "..", "src");
+        string proj = System.IO.Path.Combine(path!, "..", "..", "..", "..", "src");
 
         bool result = await _util.Build(proj);
 
-        result.Should().BeTrue();
+        result.Should()
+              .BeTrue();
     }
 
     [LocalFact]
     public async ValueTask GetDependencySetsLocal()
     {
-        (List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive) result = await _util.GetDependencySetsLocal("", CancellationToken);
+        (List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive) result = await _util.GetDependencySetsLocal("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj", CancellationToken);
+
+        result.Should()
+              .NotBeNull();
     }
 
     [LocalFact]
     //[ManualFact]
     public async ValueTask UpdatePackages()
     {
-        bool result = await _util.UpdatePackages("", cancellationToken: CancellationToken);
+        bool result = await _util.UpdatePackages("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj", cancellationToken: CancellationToken);
 
-        result.Should().BeTrue();
+        result.Should()
+              .BeTrue();
     }
 
-    [ManualFact]
+    //[ManualFact]
+    [LocalFact]
     public async ValueTask Test()
     {
         bool result = await _util.Test("", cancellationToken: CancellationToken);
 
-        result.Should().BeFalse();
+        result.Should()
+              .BeFalse();
     }
 
-    [ManualFact]
+    [LocalFact]
     public async ValueTask GetPackages()
     {
-        List<KeyValuePair<string, string>> result = await _util.ListPackages("", transitive: true, cancellationToken: CancellationToken);
+        List<KeyValuePair<string, string>> result = await _util.ListPackages("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj", transitive: true, cancellationToken: CancellationToken);
+
+        result.Should()
+              .NotBeNullOrEmpty();
     }
 }

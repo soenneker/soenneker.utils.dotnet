@@ -1,159 +1,141 @@
 ﻿using Microsoft.Extensions.Logging;
 using Soenneker.Extensions.ValueTask;
+using Soenneker.Utils.Directory.Abstract;
 using Soenneker.Utils.Dotnet.Abstract;
+using Soenneker.Utils.Dotnet.Dtos;
+using Soenneker.Utils.File.Abstract;
 using Soenneker.Utils.Process.Abstract;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
-using System.Threading.Tasks;
 using Soenneker.Extensions.String;
+using System.Threading.Tasks;
 
 namespace Soenneker.Utils.Dotnet;
 
 /// <inheritdoc cref="IDotnetUtil"/>
 public sealed class DotnetUtil : IDotnetUtil
 {
-    private readonly ILogger<DotnetUtil> _logger;
-    private readonly IProcessUtil _processUtil;
-
-    private readonly Dictionary<string, string> _environmentalVars = new()
+    private static readonly Dictionary<string, string> _environmentalVars = new(StringComparer.Ordinal)
     {
-        { "DOTNET_CLI_UI_LANGUAGE", "en" },
-        { "DOTNET_CLI_TELEMETRY_OPTOUT", "1" }
+        ["DOTNET_CLI_UI_LANGUAGE"] = "en",
+        ["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1",
+        ["DOTNET_NOLOGO"] = "1"
     };
 
-    public DotnetUtil(ILogger<DotnetUtil> logger, IProcessUtil processUtil)
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    private readonly ILogger<DotnetUtil> _logger;
+    private readonly IProcessUtil _processUtil;
+    private readonly IFileUtil _fileUtil;
+    private readonly IDirectoryUtil _directoryUtil;
+
+    public DotnetUtil(ILogger<DotnetUtil> logger, IProcessUtil processUtil, IFileUtil fileUtil, IDirectoryUtil directoryUtil)
     {
         _logger = logger;
         _processUtil = processUtil;
+        _fileUtil = fileUtil;
+        _directoryUtil = directoryUtil;
     }
 
     public async ValueTask<string> Execute(string arguments, CancellationToken cancellationToken = default)
     {
-        List<string> lines = await _processUtil.Start("dotnet", arguments: arguments, log: false, environmentalVars: _environmentalVars,
-            cancellationToken: cancellationToken);
-
-        return string.Join(Environment.NewLine, lines);
+        List<string> output = await ExecuteRaw("dotnet", arguments, log: false, cancellationToken)
+            .NoSync();
+        return JoinOutput(output);
     }
 
     public async ValueTask<(List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive)> GetDependencySetsLocal(string csproj,
         CancellationToken cancellationToken = default)
     {
-        var direct = new List<KeyValuePair<string, string>>();
+        PackageListReport report = await GetPackageListReport(
+                csproj, includeTransitive: true, outdated: false, noRestore: false, cancellationToken: cancellationToken)
+            .NoSync();
+
+        var direct = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var transitive = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        string json = await Execute($"list \"{csproj}\" package --include-transitive --format json", cancellationToken);
-
-        using JsonDocument doc = JsonDocument.Parse(json);
-
-        if (!doc.RootElement.TryGetProperty("projects", out JsonElement projects))
-            return (direct, transitive); // dotnet list returned nothing useful
-
-        foreach (JsonElement proj in projects.EnumerateArray())
+        foreach (ProjectReport project in report.Projects)
         {
-            if (!proj.TryGetProperty("frameworks", out JsonElement frameworks))
-                continue;
-
-            foreach (JsonElement fw in frameworks.EnumerateArray())
+            foreach (FrameworkReport framework in project.Frameworks)
             {
-                if (fw.TryGetProperty("topLevelPackages", out JsonElement top))
+                if (framework.TopLevelPackages is { Count: > 0 })
                 {
-                    foreach (JsonElement p in top.EnumerateArray())
+                    foreach (PackageEntry package in framework.TopLevelPackages)
                     {
-                        string id = p.TryGetProperty("id", out JsonElement idProp) ? idProp.GetString()! : p.GetProperty("name").GetString()!;
+                        if (package.Id.IsNullOrWhiteSpace())
+                            continue;
 
-                        string ver = p.TryGetProperty("resolvedVersion", out JsonElement verProp)
-                            ? verProp.GetString()!
-                            : p.GetProperty("version").GetString()!;
-
-                        direct.Add(new KeyValuePair<string, string>(id, ver));
+                        string version = FirstNonEmpty(package.ResolvedVersion, package.RequestedVersion, package.LatestVersion) ?? string.Empty;
+                        direct[package.Id] = version;
                     }
                 }
 
-                if (fw.TryGetProperty("transitivePackages", out JsonElement trans))
+                if (framework.TransitivePackages is { Count: > 0 })
                 {
-                    foreach (JsonElement p in trans.EnumerateArray())
+                    foreach (PackageEntry package in framework.TransitivePackages)
                     {
-                        string id = p.TryGetProperty("id", out JsonElement idProp) ? idProp.GetString()! : p.GetProperty("name").GetString()!;
-                        transitive.Add(id);
+                        if (package.Id.HasContent())
+                            transitive.Add(package.Id);
                     }
                 }
             }
         }
 
-        return (direct, transitive);
+        return (direct.Select(static kvp => new KeyValuePair<string, string>(kvp.Key, kvp.Value))
+                      .ToList(), transitive);
     }
 
     public ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal",
         bool? build = true, CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand("run", path, p => ArgumentUtil.Run(p, framework, configuration, verbosity, build),
-            _ => true, // No specific success criteria for `dotnet run`
-            null, log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.Run(path, framework, configuration, verbosity, build), log, cancellationToken);
     }
 
     public ValueTask<bool> Restore(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand("restore", path, p => ArgumentUtil.Restore(p, verbosity),
-            output => output.Contains("Restore completed", StringComparison.OrdinalIgnoreCase), null, log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.Restore(path, verbosity), log, cancellationToken);
     }
 
     public ValueTask<bool> Build(string path, bool log = true, string? configuration = "Release", bool? restore = true, string? verbosity = "normal",
         CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand("build", path, p => ArgumentUtil.Build(p, configuration, restore, verbosity),
-            output => output.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase), null, log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.Build(path, configuration, restore, verbosity), log, cancellationToken);
     }
 
     public ValueTask<bool> Test(string path, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand("test", path, p => ArgumentUtil.Test(p, restore, verbosity),
-            output =>
-            {
-                return output.Contains("test succeeded", StringComparison.OrdinalIgnoreCase) ||
-                       output.Contains("Passed!", StringComparison.OrdinalIgnoreCase) ||
-                       output.Contains("Test Run Successful.", StringComparison.OrdinalIgnoreCase);
-            },
-            output =>
-            {
-                return output.Contains("build failed", StringComparison.OrdinalIgnoreCase) ||
-                       output.Contains("test failed", StringComparison.OrdinalIgnoreCase);
-            }, log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.Test(path, restore, verbosity), log, cancellationToken);
     }
 
     public ValueTask<bool> Pack(string path, string version, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false,
         string? output = ".", string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand("pack", path, p => ArgumentUtil.Pack(p, version, configuration, build, restore, output, verbosity),
-            o => o.Contains("0 Error(s)", StringComparison.OrdinalIgnoreCase), null, log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.Pack(path, version, configuration, build, restore, output, verbosity), log, cancellationToken);
     }
 
     public ValueTask<bool> RemovePackage(string path, string packageId, bool log = true, bool? restore = true, CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand("remove", path, p => ArgumentUtil.RemovePackage(p, packageId, restore),
-            output => output.Contains("Successfully removed", StringComparison.OrdinalIgnoreCase) ||
-                      output.Contains("does not contain", StringComparison.OrdinalIgnoreCase), null, log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.RemovePackage(path, packageId, restore), log, cancellationToken);
     }
 
     public ValueTask<bool> AddPackage(string projectPath, string packageId, string? version = null, bool log = true, bool? restore = true,
         CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand("add", projectPath, path => ArgumentUtil.AddPackage(path, packageId, version, restore), output =>
-        {
-            // Check for success indicators in the output
-            return output.Contains("PackageReference for package", StringComparison.OrdinalIgnoreCase) &&
-                   output.Contains("updated in file", StringComparison.OrdinalIgnoreCase);
-        }, null, log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.AddPackage(projectPath, packageId, version, restore), log, cancellationToken);
     }
 
     public async ValueTask<bool> UpdatePackages(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
     {
-        await Restore(path, log, verbosity, cancellationToken).NoSync();
-
         _logger.LogInformation("Updating packages for path ({Path})", path);
 
-        List<string> projectFiles = ProjectHelper.GetProjectFiles(path);
+        List<string> projectFiles = await GetProjectFiles(path, cancellationToken)
+            .NoSync();
 
         if (projectFiles.Count == 0)
         {
@@ -161,36 +143,57 @@ public sealed class DotnetUtil : IDotnetUtil
             return false;
         }
 
-        var allPackagesUpdated = true;
+        bool restoreSuccess = await Restore(path, log, verbosity, cancellationToken)
+            .NoSync();
 
-        // Step 2: Iterate through each project and update packages
+        if (!restoreSuccess)
+        {
+            _logger.LogError("Initial restore failed for path ({Path})", path);
+            return false;
+        }
+
+        bool allPackagesUpdated = true;
+
         foreach (string projectFile in projectFiles)
         {
             _logger.LogInformation("Checking outdated packages for project ({ProjectFile})...", projectFile);
 
-            // Get outdated packages for the current project
-            List<KeyValuePair<string, string>> outdatedPackages = await ListPackages(
-                projectFile, outdated: true, log: log, verbosity: verbosity, cancellationToken: cancellationToken).NoSync();
+            PackageListReport report = await GetPackageListReport(
+                    projectFile, includeTransitive: false, outdated: true, noRestore: true, cancellationToken: cancellationToken)
+                .NoSync();
 
-            if (outdatedPackages.Count == 0)
+            List<PackageUpdateCandidate> candidates = GetOutdatedTopLevelPackages(report);
+
+            if (candidates.Count == 0)
             {
                 _logger.LogInformation("No outdated packages found for project ({ProjectFile})", projectFile);
                 continue;
             }
 
-            foreach (KeyValuePair<string, string> kvp in outdatedPackages)
+            foreach (PackageUpdateCandidate candidate in candidates)
             {
-                _logger.LogInformation("Updating package ({Package}) in project ({ProjectFile})...", kvp.Key, projectFile);
+                _logger.LogInformation("Updating package ({PackageId}) in project ({ProjectFile}) from {ResolvedVersion} to {LatestVersion}...",
+                    candidate.PackageId, projectFile, candidate.ResolvedVersion, candidate.LatestVersion);
 
-                bool updateSuccess = await AddPackage(projectFile, packageId: kvp.Key, version: null, // Update to the latest version
-                    log: log, restore: true, cancellationToken: cancellationToken).NoSync();
+                bool updated = await AddPackage(projectFile, candidate.PackageId, candidate.LatestVersion, log, restore: false,
+                        cancellationToken: cancellationToken)
+                    .NoSync();
 
-                if (!updateSuccess)
+                if (!updated)
                 {
-                    _logger.LogError("Failed to update package ({Package}) in project ({ProjectFile})", kvp.Key, projectFile);
-                    allPackagesUpdated = false; // Mark as failure
+                    _logger.LogError("Failed to update package ({PackageId}) in project ({ProjectFile})", candidate.PackageId, projectFile);
+                    allPackagesUpdated = false;
                 }
             }
+        }
+
+        bool finalRestoreSuccess = await Restore(path, log, verbosity, cancellationToken)
+            .NoSync();
+
+        if (!finalRestoreSuccess)
+        {
+            _logger.LogError("Final restore failed after package updates for path ({Path})", path);
+            return false;
         }
 
         if (allPackagesUpdated)
@@ -204,117 +207,184 @@ public sealed class DotnetUtil : IDotnetUtil
     public ValueTask<bool> Clean(string path, bool log = true, string? configuration = "Release", string? verbosity = "normal",
         CancellationToken cancellationToken = default)
     {
-        return ExecuteCommand("clean", path, p => ArgumentUtil.Clean(p, configuration, verbosity),
-            output => output.Contains("Cleaned", StringComparison.OrdinalIgnoreCase), null, log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.Clean(path, configuration, verbosity), log, cancellationToken);
     }
 
     public async ValueTask<List<KeyValuePair<string, string>>> ListPackages(string path, bool outdated = false, bool transitive = false,
         bool includePrerelease = false, bool vulnerable = false, bool deprecated = false, bool log = true, string? verbosity = "normal",
         CancellationToken cancellationToken = default)
     {
-        var packages = new List<KeyValuePair<string, string>>();
+        PackageListReport report = await GetPackageListReport(path, includeTransitive: transitive, outdated: outdated, includePrerelease: includePrerelease,
+                vulnerable: vulnerable, deprecated: deprecated, noRestore: false, verbosity: verbosity, log: log, cancellationToken: cancellationToken)
+            .NoSync();
 
-        List<string> processOutput = await ExecuteCommandWithOutput("list", path,
-            p => ArgumentUtil.ListPackages(p, outdated, transitive, includePrerelease, vulnerable, deprecated, verbosity), log, cancellationToken);
+        var packages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        var inTransitiveSection = false;
-
-        foreach (string output in processOutput)
+        foreach (ProjectReport project in report.Projects)
         {
-            string line = output.Trim();
-
-            // Detect section headers
-            if (line.StartsWith("Top-level Package", StringComparison.OrdinalIgnoreCase))
+            foreach (FrameworkReport framework in project.Frameworks)
             {
-                inTransitiveSection = false;
-                continue;
-            }
+                IReadOnlyList<PackageEntry>? entries = transitive ? framework.TransitivePackages : framework.TopLevelPackages;
 
-            if (line.StartsWith("Transitive Package", StringComparison.OrdinalIgnoreCase))
-            {
-                inTransitiveSection = true;
-                continue;
-            }
+                if (entries is not { Count: > 0 })
+                    continue;
 
-            // Process outdated format
-            if (outdated && output.Contains('>', StringComparison.OrdinalIgnoreCase))
-            {
-                string[] parts = output.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-                string? packageName = null;
-                string? resolvedVersion = null;
-                string? latestVersion = null;
-
-                // Different versions of dotnet
-                if (parts.Length == 4)
+                foreach (PackageEntry entry in entries)
                 {
-                    packageName = parts[1];
-                    resolvedVersion = parts[2];
-                    latestVersion = parts[3];
-                }
-                else if (parts.Length == 5)
-                {
-                    packageName = parts[1];
-                    resolvedVersion = parts[3];
-                    latestVersion = parts[4];
-                }
+                    if (entry.Id.IsNullOrWhiteSpace())
+                        continue;
 
-                if (resolvedVersion != null && latestVersion != null)
-                {
-                    if (!resolvedVersion.EqualsIgnoreCase(latestVersion))
+                    if (outdated)
                     {
-                        packages.Add(new KeyValuePair<string, string>(packageName!, resolvedVersion));
+                        string? resolved = FirstNonEmpty(entry.ResolvedVersion, entry.RequestedVersion);
+                        string? latest = entry.LatestVersion;
+
+                        if (resolved.IsNullOrWhiteSpace() || latest.IsNullOrWhiteSpace())
+                            continue;
+
+                        if (string.Equals(resolved, latest, StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        packages[entry.Id] = resolved;
                     }
-                }
-            }
-            // Process standard format
-            else if (!outdated && output.Contains('>', StringComparison.OrdinalIgnoreCase))
-            {
-                string[] parts = output.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-                if (parts.Length >= 2)
-                {
-                    string packageName = parts[1];
-                    string version = parts.Length > 2 ? parts[2] : string.Empty;
-
-                    // Include packages based on the transitive parameter
-                    if ((transitive && inTransitiveSection) || (!transitive && !inTransitiveSection))
+                    else
                     {
-                        packages.Add(new KeyValuePair<string, string>(packageName, version));
+                        string version = FirstNonEmpty(entry.ResolvedVersion, entry.RequestedVersion, entry.LatestVersion) ?? string.Empty;
+                        packages[entry.Id] = version;
                     }
                 }
             }
         }
 
-        return packages;
+        return packages.Select(static kvp => new KeyValuePair<string, string>(kvp.Key, kvp.Value))
+                       .ToList();
     }
 
-    public async ValueTask<bool> ExecuteCommand(string command, string projectPath, Func<string, string> argumentBuilder, Func<string, bool> successCriteria,
-        Func<string, bool>? failureCriteria = null, bool log = true, CancellationToken cancellationToken = default)
-    {
-        List<string> processOutput = await ExecuteCommandWithOutput(command, projectPath, argumentBuilder, log, cancellationToken).NoSync();
-
-        foreach (string output in processOutput)
-        {
-            if (successCriteria(output))
-                return true;
-
-            if (failureCriteria != null && failureCriteria(output))
-                return false;
-        }
-
-        return false;
-    }
-
-    public ValueTask<List<string>> ExecuteCommandWithOutput(string command, string projectPath, Func<string, string> argumentBuilder, bool log = true,
+    private async ValueTask<PackageListReport> GetPackageListReport(string path, bool includeTransitive, bool outdated, bool includePrerelease = false,
+        bool vulnerable = false, bool deprecated = false, bool noRestore = false, string? verbosity = null, bool log = true,
         CancellationToken cancellationToken = default)
     {
-        string arguments = argumentBuilder(projectPath);
+        string? effectiveVerbosity = verbosity;
 
+        if (effectiveVerbosity != null && !string.Equals(effectiveVerbosity, "quiet", StringComparison.OrdinalIgnoreCase))
+        {
+            effectiveVerbosity = "quiet";
+        }
+
+        string args = ArgumentUtil.ListPackages(path, includeTransitive, outdated, includePrerelease, vulnerable, deprecated, noRestore, effectiveVerbosity);
+
+        List<string> output = await ExecuteDotnet(args, log, cancellationToken)
+            .NoSync();
+        string json = JoinOutput(output);
+
+        PackageListReport? report = JsonSerializer.Deserialize<PackageListReport>(json, _jsonOptions);
+
+        if (report is null)
+            throw new InvalidOperationException($"Failed to deserialize dotnet package list JSON for '{path}'.");
+
+        return report;
+    }
+
+    private ValueTask<List<string>> ExecuteDotnet(string arguments, bool log, CancellationToken cancellationToken)
+    {
+        return ExecuteRaw("dotnet", arguments, log, cancellationToken);
+    }
+
+    private async ValueTask<List<string>> ExecuteRaw(string fileName, string arguments, bool log, CancellationToken cancellationToken)
+    {
         if (log)
-            _logger.LogInformation("Executing: dotnet {Command} {Arguments} ...", command, arguments);
+            _logger.LogInformation("Executing: {FileName} {Arguments}", fileName, arguments);
 
-        return _processUtil.Start("dotnet", null, $"{command} {arguments}", false, true, null, log, environmentalVars: _environmentalVars,
-            cancellationToken: cancellationToken);
+        return await _processUtil.Start(fileName, arguments: arguments, log: false, environmentalVars: _environmentalVars, cancellationToken: cancellationToken)
+                                 .NoSync();
+    }
+
+    private async ValueTask<bool> TryExecuteDotnet(string arguments, bool log, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ExecuteDotnet(arguments, log, cancellationToken)
+                .NoSync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (log)
+                _logger.LogError(ex, "dotnet {Arguments} failed", arguments);
+
+            return false;
+        }
+    }
+
+    public async ValueTask<List<string>> GetProjectFiles(string path, CancellationToken cancellationToken)
+    {
+        var projectFiles = new List<string>();
+
+        if (await _fileUtil.Exists(path, cancellationToken) && path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+        {
+            projectFiles.Add(path);
+        }
+        else if (await _directoryUtil.Exists(path, cancellationToken))
+        {
+            List<string> files = await _directoryUtil.GetFilesByExtension(path, "csproj", true, cancellationToken)
+                                                     .NoSync();
+            projectFiles.AddRange(files);
+        }
+
+        return projectFiles;
+    }
+
+    private static List<PackageUpdateCandidate> GetOutdatedTopLevelPackages(PackageListReport report)
+    {
+        var candidates = new Dictionary<string, PackageUpdateCandidate>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (ProjectReport project in report.Projects)
+        {
+            foreach (FrameworkReport framework in project.Frameworks)
+            {
+                if (framework.TopLevelPackages is not { Count: > 0 })
+                    continue;
+
+                foreach (PackageEntry package in framework.TopLevelPackages)
+                {
+                    if (package.Id.IsNullOrWhiteSpace())
+                        continue;
+
+                    string? resolved = FirstNonEmpty(package.ResolvedVersion, package.RequestedVersion);
+                    string? latest = package.LatestVersion;
+
+                    if (resolved.IsNullOrWhiteSpace() || latest.IsNullOrWhiteSpace())
+                        continue;
+
+                    if (string.Equals(resolved, latest, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    candidates[package.Id] = new PackageUpdateCandidate(package.Id, resolved, latest);
+                }
+            }
+        }
+
+        return candidates.Values.ToList();
+    }
+
+    private static string JoinOutput(IReadOnlyList<string> output)
+    {
+        return output.Count switch
+        {
+            0 => string.Empty,
+            1 => output[0],
+            _ => string.Join(Environment.NewLine, output)
+        };
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (string? value in values)
+        {
+            if (value.HasContent())
+                return value;
+        }
+
+        return null;
     }
 }
