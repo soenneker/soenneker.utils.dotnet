@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -54,6 +55,30 @@ public interface IDotnetUtil
         string? verbosity = "normal", bool? build = true, bool? restore = true, string? urls = null,
         string? launchProfile = null, string? environment = null, IReadOnlyList<string>? applicationArguments = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Starts <c>dotnet run</c> without waiting for the target process to exit.
+    /// Intended for long-running apps such as local web servers used by integration tests.
+    /// </summary>
+    /// <param name="path">Path to a <c>.csproj</c> or directory containing a project.</param>
+    /// <param name="framework">Target framework to run.</param>
+    /// <param name="log">Whether to log execution details.</param>
+    /// <param name="configuration">Build configuration (e.g. Release or Debug).</param>
+    /// <param name="verbosity">CLI verbosity level.</param>
+    /// <param name="build">Whether to build before running.</param>
+    /// <param name="restore">Whether to restore before running.</param>
+    /// <param name="urls">Application URLs to bind (ASP.NET scenarios).</param>
+    /// <param name="launchProfile">Launch profile to use.</param>
+    /// <param name="environment">Environment name (e.g. Development, Production).</param>
+    /// <param name="applicationArguments">Arguments passed to the application (after <c>--</c>).</param>
+    /// <param name="outputCallback">Optional callback invoked for each stdout line.</param>
+    /// <param name="errorCallback">Optional callback invoked for each stderr line.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The started process, or <c>null</c> if launch validation or startup failed.</returns>
+    ValueTask<Process?> Start(string path, string? framework = null, bool log = true, string? configuration = "Release",
+        string? verbosity = "normal", bool? build = true, bool? restore = true, string? urls = null,
+        string? launchProfile = null, string? environment = null, IReadOnlyList<string>? applicationArguments = null,
+        Action<string>? outputCallback = null, Action<string>? errorCallback = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Executes <c>dotnet restore</c>.

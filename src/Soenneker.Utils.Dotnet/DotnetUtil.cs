@@ -7,6 +7,8 @@ using Soenneker.Utils.File.Abstract;
 using Soenneker.Utils.Process.Abstract;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -96,35 +98,119 @@ public sealed class DotnetUtil : IDotnetUtil
         bool? build = true, bool? restore = true, string? urls = null, string? launchProfile = null, string? environment = null,
         IReadOnlyList<string>? applicationArguments = null, CancellationToken cancellationToken = default)
     {
-        if (path.IsNullOrWhiteSpace())
-            throw new ArgumentException("Path cannot be null or whitespace.", nameof(path));
+        (bool valid, _, _) = await ValidateRunPath(path, log, cancellationToken)
+            .NoSync();
 
-        bool fileExists = await _fileUtil.Exists(path, cancellationToken)
-                                         .NoSync();
-
-        bool directoryExists = !fileExists && await _directoryUtil.Exists(path, cancellationToken)
-                                                                  .NoSync();
-
-        if (!fileExists && !directoryExists)
-        {
-            if (log)
-                _logger.LogError("Cannot run dotnet because path does not exist: {Path}", path);
-
+        if (!valid)
             return false;
-        }
-
-        if (fileExists && !path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
-        {
-            if (log)
-                _logger.LogError("Cannot run dotnet because file is not a .csproj: {Path}", path);
-
-            return false;
-        }
 
         return await TryExecuteDotnet(
                 ArgumentUtil.Run(path, framework, configuration, verbosity, build, restore, urls, launchProfile, environment, applicationArguments), log,
                 cancellationToken)
             .NoSync();
+    }
+
+    public async ValueTask<Process?> Start(string path, string? framework = null, bool log = true, string? configuration = "Release",
+        string? verbosity = "normal", bool? build = true, bool? restore = true, string? urls = null, string? launchProfile = null,
+        string? environment = null, IReadOnlyList<string>? applicationArguments = null, Action<string>? outputCallback = null,
+        Action<string>? errorCallback = null, CancellationToken cancellationToken = default)
+    {
+        (bool valid, bool fileExists, _) = await ValidateRunPath(path, log, cancellationToken)
+            .NoSync();
+
+        if (!valid)
+            return null;
+
+        string arguments = ArgumentUtil.Run(path, framework, configuration, verbosity, build, restore, urls, launchProfile, environment, applicationArguments);
+
+        if (log)
+            _logger.LogInformation("Starting: dotnet {Arguments}", arguments);
+
+        var startInfo = new ProcessStartInfo("dotnet", arguments)
+        {
+            WorkingDirectory = ResolveWorkingDirectory(path, fileExists),
+            UseShellExecute = false,
+            RedirectStandardOutput = outputCallback is not null,
+            RedirectStandardError = errorCallback is not null,
+            CreateNoWindow = true
+        };
+
+        foreach (KeyValuePair<string, string> environmentalVar in _environmentalVars)
+        {
+            startInfo.Environment[environmentalVar.Key] = environmentalVar.Value;
+        }
+
+        var process = new Process
+        {
+            StartInfo = startInfo,
+            EnableRaisingEvents = true
+        };
+
+        if (outputCallback is not null)
+        {
+            process.OutputDataReceived += (_, args) =>
+            {
+                if (args.Data.HasContent())
+                    outputCallback(args.Data);
+            };
+        }
+
+        if (errorCallback is not null)
+        {
+            process.ErrorDataReceived += (_, args) =>
+            {
+                if (args.Data.HasContent())
+                    errorCallback(args.Data);
+            };
+        }
+
+        try
+        {
+            if (!process.Start())
+            {
+                if (log)
+                    _logger.LogError("dotnet {Arguments} did not start a process", arguments);
+
+                process.Dispose();
+                return null;
+            }
+
+            if (startInfo.RedirectStandardOutput)
+                process.BeginOutputReadLine();
+
+            if (startInfo.RedirectStandardError)
+                process.BeginErrorReadLine();
+
+            if (cancellationToken.CanBeCanceled)
+            {
+                CancellationTokenRegistration registration = cancellationToken.Register(static state =>
+                {
+                    var process = (Process)state!;
+
+                    try
+                    {
+                        if (!process.HasExited)
+                            process.Kill(entireProcessTree: true);
+                    }
+                    catch
+                    {
+                    }
+                }, process);
+
+                process.Exited += (_, _) => registration.Dispose();
+            }
+
+            return process;
+        }
+        catch (Exception ex)
+        {
+            process.Dispose();
+
+            if (log)
+                _logger.LogError(ex, "dotnet {Arguments} failed to start", arguments);
+
+            return null;
+        }
     }
 
     public ValueTask<bool> Restore(string path, bool log = true, string? verbosity = "normal", string? runtime = null, string? packages = null,
@@ -358,6 +444,49 @@ public sealed class DotnetUtil : IDotnetUtil
 
             return false;
         }
+    }
+
+    private async ValueTask<(bool valid, bool fileExists, bool directoryExists)> ValidateRunPath(string path, bool log, CancellationToken cancellationToken)
+    {
+        if (path.IsNullOrWhiteSpace())
+            throw new ArgumentException("Path cannot be null or whitespace.", nameof(path));
+
+        bool fileExists = await _fileUtil.Exists(path, cancellationToken)
+                                         .NoSync();
+
+        bool directoryExists = !fileExists && await _directoryUtil.Exists(path, cancellationToken)
+                                                                  .NoSync();
+
+        if (!fileExists && !directoryExists)
+        {
+            if (log)
+                _logger.LogError("Cannot run dotnet because path does not exist: {Path}", path);
+
+            return (false, false, false);
+        }
+
+        if (fileExists && !path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+        {
+            if (log)
+                _logger.LogError("Cannot run dotnet because file is not a .csproj: {Path}", path);
+
+            return (false, true, false);
+        }
+
+        return (true, fileExists, directoryExists);
+    }
+
+    private static string ResolveWorkingDirectory(string path, bool fileExists)
+    {
+        if (!fileExists)
+            return path;
+
+        string? directory = Path.GetDirectoryName(path);
+
+        if (directory.IsNullOrWhiteSpace())
+            throw new InvalidOperationException($"Could not determine working directory for '{path}'.");
+
+        return directory;
     }
 
     public async ValueTask<List<string>> GetProjectFiles(string path, CancellationToken cancellationToken)
