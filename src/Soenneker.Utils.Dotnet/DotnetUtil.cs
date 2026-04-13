@@ -47,6 +47,7 @@ public sealed class DotnetUtil : IDotnetUtil
     {
         List<string> output = await ExecuteRaw("dotnet", arguments, log: false, cancellationToken)
             .NoSync();
+
         return JoinOutput(output);
     }
 
@@ -91,32 +92,71 @@ public sealed class DotnetUtil : IDotnetUtil
                       .ToList(), transitive);
     }
 
-    public ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal",
-        bool? build = true, string? urls = null, CancellationToken cancellationToken = default)
+    public async ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal",
+        bool? build = true, bool? restore = true, string? urls = null, string? launchProfile = null, string? environment = null,
+        IReadOnlyList<string>? applicationArguments = null, CancellationToken cancellationToken = default)
     {
-        return TryExecuteDotnet(ArgumentUtil.Run(path, framework, configuration, verbosity, build, urls), log, cancellationToken);
+        if (path.IsNullOrWhiteSpace())
+            throw new ArgumentException("Path cannot be null or whitespace.", nameof(path));
+
+        bool fileExists = await _fileUtil.Exists(path, cancellationToken)
+                                         .NoSync();
+
+        bool directoryExists = !fileExists && await _directoryUtil.Exists(path, cancellationToken)
+                                                                  .NoSync();
+
+        if (!fileExists && !directoryExists)
+        {
+            if (log)
+                _logger.LogError("Cannot run dotnet because path does not exist: {Path}", path);
+
+            return false;
+        }
+
+        if (fileExists && !path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+        {
+            if (log)
+                _logger.LogError("Cannot run dotnet because file is not a .csproj: {Path}", path);
+
+            return false;
+        }
+
+        return await TryExecuteDotnet(
+                ArgumentUtil.Run(path, framework, configuration, verbosity, build, restore, urls, launchProfile, environment, applicationArguments), log,
+                cancellationToken)
+            .NoSync();
     }
 
-    public ValueTask<bool> Restore(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
+    public ValueTask<bool> Restore(string path, bool log = true, string? verbosity = "normal", string? runtime = null, string? packages = null,
+        IReadOnlyList<string>? sources = null, string? configFile = null, bool disableParallel = false, CancellationToken cancellationToken = default)
     {
-        return TryExecuteDotnet(ArgumentUtil.Restore(path, verbosity), log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.Restore(path, verbosity, runtime, packages, sources, configFile, disableParallel), log, cancellationToken);
     }
 
     public ValueTask<bool> Build(string path, bool log = true, string? configuration = "Release", bool? restore = true, string? verbosity = "normal",
-        CancellationToken cancellationToken = default)
+        string? framework = null, string? runtime = null, bool? selfContained = null, string? output = null,
+        IReadOnlyList<KeyValuePair<string, string?>>? properties = null, CancellationToken cancellationToken = default)
     {
-        return TryExecuteDotnet(ArgumentUtil.Build(path, configuration, restore, verbosity), log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.Build(path, configuration, restore, verbosity, framework, runtime, selfContained, output, properties), log,
+            cancellationToken);
     }
 
-    public ValueTask<bool> Test(string path, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
+    public ValueTask<bool> Test(string path, bool log = true, bool? restore = true, bool? build = true, string? configuration = "Release",
+        string? verbosity = "normal", string? framework = null, string? filter = null, string? logger = null, string? resultsDirectory = null,
+        CancellationToken cancellationToken = default)
     {
-        return TryExecuteDotnet(ArgumentUtil.Test(path, restore, verbosity), log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.Test(path, restore, build, configuration, verbosity, framework, filter, logger, resultsDirectory), log,
+            cancellationToken);
     }
 
     public ValueTask<bool> Pack(string path, string version, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false,
-        string? output = ".", string? verbosity = "normal", CancellationToken cancellationToken = default)
+        string? output = ".", string? verbosity = "normal", string? framework = null, string? runtime = null, bool? includeSymbols = null,
+        bool? includeSource = null, bool? serviceable = null, IReadOnlyList<KeyValuePair<string, string?>>? properties = null,
+        CancellationToken cancellationToken = default)
     {
-        return TryExecuteDotnet(ArgumentUtil.Pack(path, version, configuration, build, restore, output, verbosity), log, cancellationToken);
+        return TryExecuteDotnet(
+            ArgumentUtil.Pack(path, version, configuration, build, restore, output, verbosity, framework, runtime, includeSymbols, includeSource, serviceable,
+                properties), log, cancellationToken);
     }
 
     public ValueTask<bool> RemovePackage(string path, string packageId, bool log = true, bool? restore = true, CancellationToken cancellationToken = default)
@@ -125,9 +165,11 @@ public sealed class DotnetUtil : IDotnetUtil
     }
 
     public ValueTask<bool> AddPackage(string projectPath, string packageId, string? version = null, bool log = true, bool? restore = true,
+        string? framework = null, string? source = null, bool prerelease = false, string? packageDirectory = null, bool interactive = false,
         CancellationToken cancellationToken = default)
     {
-        return TryExecuteDotnet(ArgumentUtil.AddPackage(projectPath, packageId, version, restore), log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.AddPackage(projectPath, packageId, version, restore, framework, source, prerelease, packageDirectory, interactive),
+            log, cancellationToken);
     }
 
     public async ValueTask<bool> UpdatePackages(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)
@@ -143,7 +185,7 @@ public sealed class DotnetUtil : IDotnetUtil
             return false;
         }
 
-        bool restoreSuccess = await Restore(path, log, verbosity, cancellationToken)
+        bool restoreSuccess = await Restore(path, log, verbosity, cancellationToken: cancellationToken)
             .NoSync();
 
         if (!restoreSuccess)
@@ -152,14 +194,14 @@ public sealed class DotnetUtil : IDotnetUtil
             return false;
         }
 
-        bool allPackagesUpdated = true;
+        var allPackagesUpdated = true;
 
         foreach (string projectFile in projectFiles)
         {
             _logger.LogInformation("Checking outdated packages for project ({ProjectFile})...", projectFile);
 
-            PackageListReport report = await GetPackageListReport(
-                    projectFile, includeTransitive: false, outdated: true, noRestore: true, cancellationToken: cancellationToken)
+            PackageListReport report = await GetPackageListReport(projectFile, includeTransitive: false, outdated: true, noRestore: true, verbosity: verbosity,
+                    log: log, cancellationToken: cancellationToken)
                 .NoSync();
 
             List<PackageUpdateCandidate> candidates = GetOutdatedTopLevelPackages(report);
@@ -187,7 +229,7 @@ public sealed class DotnetUtil : IDotnetUtil
             }
         }
 
-        bool finalRestoreSuccess = await Restore(path, log, verbosity, cancellationToken)
+        bool finalRestoreSuccess = await Restore(path, log, verbosity, cancellationToken: cancellationToken)
             .NoSync();
 
         if (!finalRestoreSuccess)
@@ -204,27 +246,28 @@ public sealed class DotnetUtil : IDotnetUtil
         return allPackagesUpdated;
     }
 
-    public ValueTask<bool> Clean(string path, bool log = true, string? configuration = "Release", string? verbosity = "normal",
-        CancellationToken cancellationToken = default)
+    public ValueTask<bool> Clean(string path, bool log = true, string? configuration = "Release", string? verbosity = "normal", string? framework = null,
+        string? runtime = null, string? output = null, CancellationToken cancellationToken = default)
     {
-        return TryExecuteDotnet(ArgumentUtil.Clean(path, configuration, verbosity), log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.Clean(path, configuration, verbosity, framework, runtime, output), log, cancellationToken);
     }
 
     public async ValueTask<List<KeyValuePair<string, string>>> ListPackages(string path, bool outdated = false, bool transitive = false,
         bool includePrerelease = false, bool vulnerable = false, bool deprecated = false, bool log = true, string? verbosity = "normal",
-        CancellationToken cancellationToken = default)
+        string? framework = null, bool interactive = false, string? source = null, CancellationToken cancellationToken = default)
     {
         PackageListReport report = await GetPackageListReport(path, includeTransitive: transitive, outdated: outdated, includePrerelease: includePrerelease,
-                vulnerable: vulnerable, deprecated: deprecated, noRestore: false, verbosity: verbosity, log: log, cancellationToken: cancellationToken)
+                vulnerable: vulnerable, deprecated: deprecated, noRestore: false, verbosity: verbosity, log: log, framework: framework,
+                interactive: interactive, source: source, cancellationToken: cancellationToken)
             .NoSync();
 
         var packages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (ProjectReport project in report.Projects)
         {
-            foreach (FrameworkReport framework in project.Frameworks)
+            foreach (FrameworkReport frameworkReport in project.Frameworks)
             {
-                IReadOnlyList<PackageEntry>? entries = transitive ? framework.TransitivePackages : framework.TopLevelPackages;
+                IReadOnlyList<PackageEntry>? entries = transitive ? frameworkReport.TransitivePackages : frameworkReport.TopLevelPackages;
 
                 if (entries is not { Count: > 0 })
                     continue;
@@ -261,23 +304,23 @@ public sealed class DotnetUtil : IDotnetUtil
     }
 
     private async ValueTask<PackageListReport> GetPackageListReport(string path, bool includeTransitive, bool outdated, bool includePrerelease = false,
-        bool vulnerable = false, bool deprecated = false, bool noRestore = false, string? verbosity = null, bool log = true,
-        CancellationToken cancellationToken = default)
+        bool vulnerable = false, bool deprecated = false, bool noRestore = false, string? verbosity = null, bool log = true, string? framework = null,
+        bool interactive = false, string? source = null, CancellationToken cancellationToken = default)
     {
         string? effectiveVerbosity = verbosity;
 
         if (effectiveVerbosity != null && !string.Equals(effectiveVerbosity, "quiet", StringComparison.OrdinalIgnoreCase))
-        {
             effectiveVerbosity = "quiet";
-        }
 
-        string args = ArgumentUtil.ListPackages(path, includeTransitive, outdated, includePrerelease, vulnerable, deprecated, noRestore, effectiveVerbosity);
+        string args = ArgumentUtil.ListPackages(path, includeTransitive, outdated, includePrerelease, vulnerable, deprecated, noRestore, effectiveVerbosity,
+            framework, interactive, source);
 
         List<string> output = await ExecuteDotnet(args, log, cancellationToken)
             .NoSync();
+
         string json = JoinOutput(output);
 
-        PackageListReport? report = JsonSerializer.Deserialize<PackageListReport>(json, _jsonOptions);
+        var report = JsonSerializer.Deserialize<PackageListReport>(json, _jsonOptions);
 
         if (report is null)
             throw new InvalidOperationException($"Failed to deserialize dotnet package list JSON for '{path}'.");
@@ -305,6 +348,7 @@ public sealed class DotnetUtil : IDotnetUtil
         {
             await ExecuteDotnet(arguments, log, cancellationToken)
                 .NoSync();
+
             return true;
         }
         catch (Exception ex)
@@ -328,6 +372,7 @@ public sealed class DotnetUtil : IDotnetUtil
         {
             List<string> files = await _directoryUtil.GetFilesByExtension(path, "csproj", true, cancellationToken)
                                                      .NoSync();
+
             projectFiles.AddRange(files);
         }
 

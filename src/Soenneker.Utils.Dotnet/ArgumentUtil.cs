@@ -6,27 +6,28 @@ namespace Soenneker.Utils.Dotnet;
 
 internal static class ArgumentUtil
 {
-    internal static string Run(string path, string? framework, string? configuration, string? verbosity, bool? build, string? urls)
+    internal static string Run(string path, string? framework, string? configuration, string? verbosity, bool? build, bool? restore, string? urls,
+        string? launchProfile, string? environment, IReadOnlyList<string>? applicationArguments)
     {
-        using var sb = new PooledStringBuilder();
+        var sb = new PooledStringBuilder();
 
-        sb.Append("run \"");
+        sb.Append("run --project \"");
         sb.Append(path);
         sb.Append('"');
 
-        if (framework != null)
+        if (framework.HasContent())
         {
             sb.Append(" -f ");
             sb.Append(framework);
         }
 
-        if (configuration != null)
+        if (configuration.HasContent())
         {
             sb.Append(" -c ");
             sb.Append(configuration);
         }
 
-        if (verbosity != null)
+        if (verbosity.HasContent())
         {
             sb.Append(" -v ");
             sb.Append(verbosity);
@@ -35,41 +36,88 @@ internal static class ArgumentUtil
         if (build.HasValue && !build.Value)
             sb.Append(" --no-build");
 
-        if (urls.HasContent())
+        if (restore.HasValue && !restore.Value)
+            sb.Append(" --no-restore");
+
+        if (launchProfile.HasContent())
         {
-            sb.Append(" --urls ");
-            sb.Append(urls);
+            sb.Append(" --launch-profile \"");
+            sb.Append(launchProfile);
+            sb.Append('"');
         }
 
-        return sb.ToString();
+        if (environment.HasContent())
+        {
+            sb.Append(" --environment \"");
+            sb.Append(environment);
+            sb.Append('"');
+        }
+
+        if (urls.HasContent())
+        {
+            sb.Append(" --urls \"");
+            sb.Append(urls);
+            sb.Append('"');
+        }
+
+        AppendApplicationArguments(ref sb, applicationArguments);
+
+        return sb.ToStringAndDispose();
     }
 
-    internal static string Restore(string path, string? verbosity)
+    internal static string Restore(string path, string? verbosity, string? runtime, string? packages, IReadOnlyList<string>? sources, string? configFile,
+        bool disableParallel)
     {
-        using var sb = new PooledStringBuilder();
+        var sb = new PooledStringBuilder();
 
         sb.Append("restore \"");
         sb.Append(path);
         sb.Append('"');
 
-        if (verbosity != null)
+        if (verbosity.HasContent())
         {
             sb.Append(" -v ");
             sb.Append(verbosity);
         }
 
-        return sb.ToString();
+        if (runtime.HasContent())
+        {
+            sb.Append(" --runtime ");
+            sb.Append(runtime);
+        }
+
+        if (packages.HasContent())
+        {
+            sb.Append(" --packages \"");
+            sb.Append(packages);
+            sb.Append('"');
+        }
+
+        AppendRepeatedOption(ref sb, "--source", sources);
+
+        if (configFile.HasContent())
+        {
+            sb.Append(" --configfile \"");
+            sb.Append(configFile);
+            sb.Append('"');
+        }
+
+        if (disableParallel)
+            sb.Append(" --disable-parallel");
+
+        return sb.ToStringAndDispose();
     }
 
-    internal static string Build(string path, string? configuration, bool? restore, string? verbosity)
+    internal static string Build(string path, string? configuration, bool? restore, string? verbosity, string? framework, string? runtime, bool? selfContained,
+        string? output, IReadOnlyList<KeyValuePair<string, string?>>? properties)
     {
-        using var sb = new PooledStringBuilder();
+        var sb = new PooledStringBuilder();
 
         sb.Append("build \"");
         sb.Append(path);
         sb.Append('"');
 
-        if (configuration != null)
+        if (configuration.HasContent())
         {
             sb.Append(" -c ");
             sb.Append(configuration);
@@ -78,16 +126,44 @@ internal static class ArgumentUtil
         if (restore.HasValue && !restore.Value)
             sb.Append(" --no-restore");
 
-        if (verbosity != null)
+        if (verbosity.HasContent())
         {
             sb.Append(" -v ");
             sb.Append(verbosity);
         }
 
-        return sb.ToString();
+        if (framework.HasContent())
+        {
+            sb.Append(" -f ");
+            sb.Append(framework);
+        }
+
+        if (runtime.HasContent())
+        {
+            sb.Append(" -r ");
+            sb.Append(runtime);
+        }
+
+        if (selfContained.HasValue)
+        {
+            sb.Append(" --self-contained ");
+            sb.Append(selfContained.Value ? "true" : "false");
+        }
+
+        if (output.HasContent())
+        {
+            sb.Append(" -o \"");
+            sb.Append(output);
+            sb.Append('"');
+        }
+
+        AppendProperties(ref sb, properties);
+
+        return sb.ToStringAndDispose();
     }
 
-    internal static string Test(string path, bool? restore, string? verbosity)
+    internal static string Test(string path, bool? restore, bool? build, string? configuration, string? verbosity, string? framework, string? filter,
+        string? logger, string? resultsDirectory)
     {
         using var sb = new PooledStringBuilder();
 
@@ -98,18 +174,56 @@ internal static class ArgumentUtil
         if (restore.HasValue && !restore.Value)
             sb.Append(" --no-restore");
 
-        if (verbosity != null)
+        if (build.HasValue && !build.Value)
+            sb.Append(" --no-build");
+
+        if (configuration.HasContent())
+        {
+            sb.Append(" -c ");
+            sb.Append(configuration);
+        }
+
+        if (verbosity.HasContent())
         {
             sb.Append(" -v ");
             sb.Append(verbosity);
         }
 
+        if (framework.HasContent())
+        {
+            sb.Append(" -f ");
+            sb.Append(framework);
+        }
+
+        if (filter.HasContent())
+        {
+            sb.Append(" --filter \"");
+            sb.Append(filter);
+            sb.Append('"');
+        }
+
+        if (logger.HasContent())
+        {
+            sb.Append(" --logger \"");
+            sb.Append(logger);
+            sb.Append('"');
+        }
+
+        if (resultsDirectory.HasContent())
+        {
+            sb.Append(" --results-directory \"");
+            sb.Append(resultsDirectory);
+            sb.Append('"');
+        }
+
         return sb.ToString();
     }
 
-    internal static string Pack(string path, string version, string? configuration, bool? build, bool? restore, string? output, string? verbosity)
+    internal static string Pack(string path, string version, string? configuration, bool? build, bool? restore, string? output, string? verbosity,
+        string? framework, string? runtime, bool? includeSymbols, bool? includeSource, bool? serviceable,
+        IReadOnlyList<KeyValuePair<string, string?>>? properties)
     {
-        using var sb = new PooledStringBuilder();
+        var sb = new PooledStringBuilder();
 
         sb.Append("pack \"");
         sb.Append(path);
@@ -118,7 +232,7 @@ internal static class ArgumentUtil
         sb.Append(" -p:PackageVersion=");
         sb.Append(version);
 
-        if (configuration != null)
+        if (configuration.HasContent())
         {
             sb.Append(" -c ");
             sb.Append(configuration);
@@ -130,39 +244,92 @@ internal static class ArgumentUtil
         if (restore.HasValue && !restore.Value)
             sb.Append(" --no-restore");
 
-        if (output != null)
+        if (output.HasContent())
         {
             sb.Append(" --output \"");
             sb.Append(output);
             sb.Append('"');
         }
 
-        if (verbosity != null)
+        if (verbosity.HasContent())
         {
             sb.Append(" -v ");
             sb.Append(verbosity);
         }
 
-        return sb.ToString();
+        if (framework.HasContent())
+        {
+            sb.Append(" -f ");
+            sb.Append(framework);
+        }
+
+        if (runtime.HasContent())
+        {
+            sb.Append(" -r ");
+            sb.Append(runtime);
+        }
+
+        if (includeSymbols.HasValue && includeSymbols.Value)
+            sb.Append(" --include-symbols");
+
+        if (includeSource.HasValue && includeSource.Value)
+            sb.Append(" --include-source");
+
+        if (serviceable.HasValue)
+        {
+            sb.Append(" -p:Serviceable=");
+            sb.Append(serviceable.Value ? "true" : "false");
+        }
+
+        AppendProperties(ref sb, properties);
+
+        return sb.ToStringAndDispose();
     }
 
-    internal static string AddPackage(string path, string packageId, string? version, bool? restore)
+    internal static string AddPackage(string path, string packageId, string? version, bool? restore, string? framework, string? source, bool prerelease,
+        string? packageDirectory, bool interactive)
     {
         using var sb = new PooledStringBuilder();
 
-        sb.Append("add \"");
-        sb.Append(path);
-        sb.Append('"');
-
-        sb.Append(" package \"");
+        sb.Append("package add \"");
         sb.Append(packageId);
         sb.Append('"');
 
-        if (!version.IsNullOrEmpty())
+        sb.Append(" --project \"");
+        sb.Append(path);
+        sb.Append('"');
+
+        if (version.HasContent())
         {
             sb.Append(" --version ");
             sb.Append(version);
         }
+
+        if (framework.HasContent())
+        {
+            sb.Append(" --framework ");
+            sb.Append(framework);
+        }
+
+        if (source.HasContent())
+        {
+            sb.Append(" --source \"");
+            sb.Append(source);
+            sb.Append('"');
+        }
+
+        if (prerelease)
+            sb.Append(" --prerelease");
+
+        if (packageDirectory.HasContent())
+        {
+            sb.Append(" --package-directory \"");
+            sb.Append(packageDirectory);
+            sb.Append('"');
+        }
+
+        if (interactive)
+            sb.Append(" --interactive");
 
         if (restore.HasValue && !restore.Value)
             sb.Append(" --no-restore");
@@ -174,12 +341,12 @@ internal static class ArgumentUtil
     {
         using var sb = new PooledStringBuilder();
 
-        sb.Append("remove \"");
-        sb.Append(path);
+        sb.Append("package remove \"");
+        sb.Append(packageId);
         sb.Append('"');
 
-        sb.Append(" package \"");
-        sb.Append(packageId);
+        sb.Append(" --project \"");
+        sb.Append(path);
         sb.Append('"');
 
         if (restore.HasValue && !restore.Value)
@@ -188,7 +355,7 @@ internal static class ArgumentUtil
         return sb.ToString();
     }
 
-    internal static string Clean(string path, string? configuration, string? verbosity)
+    internal static string Clean(string path, string? configuration, string? verbosity, string? framework, string? runtime, string? output)
     {
         using var sb = new PooledStringBuilder();
 
@@ -196,29 +363,49 @@ internal static class ArgumentUtil
         sb.Append(path);
         sb.Append('"');
 
-        if (!configuration.IsNullOrEmpty())
+        if (configuration.HasContent())
         {
             sb.Append(" --configuration ");
             sb.Append(configuration);
         }
 
-        if (!verbosity.IsNullOrEmpty())
+        if (verbosity.HasContent())
         {
             sb.Append(" -v ");
             sb.Append(verbosity);
+        }
+
+        if (framework.HasContent())
+        {
+            sb.Append(" -f ");
+            sb.Append(framework);
+        }
+
+        if (runtime.HasContent())
+        {
+            sb.Append(" -r ");
+            sb.Append(runtime);
+        }
+
+        if (output.HasContent())
+        {
+            sb.Append(" -o \"");
+            sb.Append(output);
+            sb.Append('"');
         }
 
         return sb.ToString();
     }
 
     internal static string ListPackages(string path, bool includeTransitive, bool outdated, bool includePrerelease, bool vulnerable, bool deprecated,
-        bool noRestore, string? verbosity)
+        bool noRestore, string? verbosity, string? framework, bool interactive, string? source)
     {
-        var parts = new List<string>(12)
+        var parts = new List<string>(18)
         {
-            "list",
-            $"\"{path}\"",
             "package",
+            "list",
+            "--project",
+            $"\"{path}\"",
             "--format",
             "json",
             "--output-version",
@@ -230,6 +417,21 @@ internal static class ArgumentUtil
             parts.Add("--verbosity");
             parts.Add(verbosity!);
         }
+
+        if (framework.HasContent())
+        {
+            parts.Add("--framework");
+            parts.Add(framework!);
+        }
+
+        if (source.HasContent())
+        {
+            parts.Add("--source");
+            parts.Add($"\"{source}\"");
+        }
+
+        if (interactive)
+            parts.Add("--interactive");
 
         if (includeTransitive)
             parts.Add("--include-transitive");
@@ -250,5 +452,68 @@ internal static class ArgumentUtil
             parts.Add("--no-restore");
 
         return string.Join(' ', parts);
+    }
+
+    private static void AppendRepeatedOption(ref PooledStringBuilder sb, string option, IReadOnlyList<string>? values)
+    {
+        if (values is not { Count: > 0 })
+            return;
+
+        foreach (string value in values)
+        {
+            if (value.IsNullOrWhiteSpace())
+                continue;
+
+            sb.Append(' ');
+            sb.Append(option);
+            sb.Append(" \"");
+            sb.Append(value);
+            sb.Append('"');
+        }
+    }
+
+    private static void AppendApplicationArguments(ref PooledStringBuilder sb, IReadOnlyList<string>? arguments)
+    {
+        if (arguments is not { Count: > 0 })
+            return;
+
+        var appendedSeparator = false;
+
+        foreach (string argument in arguments)
+        {
+            if (argument.IsNullOrWhiteSpace())
+                continue;
+
+            if (!appendedSeparator)
+            {
+                sb.Append(" --");
+                appendedSeparator = true;
+            }
+
+            sb.Append(" \"");
+            sb.Append(argument);
+            sb.Append('"');
+        }
+    }
+
+    private static void AppendProperties(ref PooledStringBuilder sb, IReadOnlyList<KeyValuePair<string, string?>>? properties)
+    {
+        if (properties is not { Count: > 0 })
+            return;
+
+        foreach (KeyValuePair<string, string?> property in properties)
+        {
+            if (property.Key.IsNullOrWhiteSpace())
+                continue;
+
+            sb.Append(" -p:");
+            sb.Append(property.Key);
+
+            if (property.Value is not null)
+            {
+                sb.Append('=');
+                sb.Append(property.Value);
+            }
+        }
     }
 }

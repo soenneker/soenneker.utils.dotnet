@@ -6,29 +6,28 @@ using System.Threading.Tasks;
 namespace Soenneker.Utils.Dotnet.Abstract;
 
 /// <summary>
-/// Provides utilities for executing <c>dotnet</c> CLI commands and working with .NET projects,
-/// including build operations, package management, and dependency inspection.
+/// Utility for executing <c>dotnet</c> CLI commands in a structured, programmatic way.
+/// Provides wrappers for common operations such as run, build, test, restore, pack, and package management.
 /// </summary>
 public interface IDotnetUtil
 {
     /// <summary>
-    /// Executes a raw <c>dotnet</c> CLI command and returns the combined standard output as a single string.
+    /// Executes a raw <c>dotnet</c> CLI command and returns the combined output.
     /// </summary>
-    /// <param name="arguments">The arguments to pass to the <c>dotnet</c> CLI.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The combined standard output.</returns>
-    /// <exception cref="InvalidOperationException">Thrown if the process exits with a non-zero code.</exception>
+    /// <param name="arguments">Arguments to pass to the <c>dotnet</c> executable.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The combined stdout output as a single string.</returns>
     ValueTask<string> Execute(string arguments, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Retrieves direct and transitive package dependencies for a given project using <c>dotnet package list</c> JSON output.
+    /// Retrieves direct and transitive dependency sets for a given project.
     /// </summary>
-    /// <param name="csproj">The path to the project file.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="csproj">Path to a <c>.csproj</c> file.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// A tuple containing:
     /// <list type="bullet">
-    /// <item><description>Direct dependencies (package ID and resolved version).</description></item>
+    /// <item><description>Direct dependencies (package ID and version).</description></item>
     /// <item><description>Transitive dependency package IDs.</description></item>
     /// </list>
     /// </returns>
@@ -36,100 +35,145 @@ public interface IDotnetUtil
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Executes <c>dotnet run</c> for a project.
+    /// Executes <c>dotnet run</c> for a project or directory.
     /// </summary>
-    /// <param name="path">The project or solution path.</param>
-    /// <param name="framework">Optional target framework.</param>
-    /// <param name="log">Whether to log command execution.</param>
-    /// <param name="configuration">Build configuration (e.g., Release, Debug).</param>
+    /// <param name="path">Path to a <c>.csproj</c> or directory containing a project.</param>
+    /// <param name="framework">Target framework to run.</param>
+    /// <param name="log">Whether to log execution details.</param>
+    /// <param name="configuration">Build configuration (e.g. Release or Debug).</param>
     /// <param name="verbosity">CLI verbosity level.</param>
     /// <param name="build">Whether to build before running.</param>
-    /// <param name="urls">Optional ASP.NET Core URLs passed through <c>--urls</c>.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns><c>true</c> if execution succeeds; otherwise <c>false</c>.</returns>
-    ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal",
-        bool? build = true, string? urls = null, CancellationToken cancellationToken = default);
+    /// <param name="restore">Whether to restore before running.</param>
+    /// <param name="urls">Application URLs to bind (ASP.NET scenarios).</param>
+    /// <param name="launchProfile">Launch profile to use.</param>
+    /// <param name="environment">Environment name (e.g. Development, Production).</param>
+    /// <param name="applicationArguments">Arguments passed to the application (after <c>--</c>).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns><c>true</c> if the command succeeded; otherwise <c>false</c>.</returns>
+    ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release",
+        string? verbosity = "normal", bool? build = true, bool? restore = true, string? urls = null,
+        string? launchProfile = null, string? environment = null, IReadOnlyList<string>? applicationArguments = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Executes <c>dotnet restore</c>.
     /// </summary>
-    ValueTask<bool> Restore(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default);
+    /// <param name="path">Project or solution path.</param>
+    /// <param name="log">Whether to log execution details.</param>
+    /// <param name="verbosity">CLI verbosity level.</param>
+    /// <param name="runtime">Runtime identifier (RID).</param>
+    /// <param name="packages">Custom global packages folder.</param>
+    /// <param name="sources">Package sources.</param>
+    /// <param name="configFile">NuGet config file path.</param>
+    /// <param name="disableParallel">Disable parallel restore.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns><c>true</c> if successful.</returns>
+    ValueTask<bool> Restore(string path, bool log = true, string? verbosity = "normal", string? runtime = null,
+        string? packages = null, IReadOnlyList<string>? sources = null, string? configFile = null, bool disableParallel = false,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Executes <c>dotnet build</c>.
     /// </summary>
-    ValueTask<bool> Build(string path, bool log = true, string? configuration = "Release", bool? restore = true, string? verbosity = "normal",
+    /// <param name="path">Project or solution path.</param>
+    /// <param name="log">Whether to log execution details.</param>
+    /// <param name="configuration">Build configuration.</param>
+    /// <param name="restore">Whether to restore before building.</param>
+    /// <param name="verbosity">CLI verbosity level.</param>
+    /// <param name="framework">Target framework.</param>
+    /// <param name="runtime">Runtime identifier (RID).</param>
+    /// <param name="selfContained">Whether to produce a self-contained build.</param>
+    /// <param name="output">Output directory.</param>
+    /// <param name="properties">MSBuild properties.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns><c>true</c> if successful.</returns>
+    ValueTask<bool> Build(string path, bool log = true, string? configuration = "Release", bool? restore = true,
+        string? verbosity = "normal", string? framework = null, string? runtime = null, bool? selfContained = null,
+        string? output = null, IReadOnlyList<KeyValuePair<string, string?>>? properties = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Executes <c>dotnet test</c>.
     /// </summary>
-    ValueTask<bool> Test(string path, bool log = true, bool? restore = true, string? verbosity = "normal", CancellationToken cancellationToken = default);
+    /// <param name="path">Project or solution path.</param>
+    /// <param name="log">Whether to log execution details.</param>
+    /// <param name="restore">Whether to restore before testing.</param>
+    /// <param name="build">Whether to build before testing.</param>
+    /// <param name="configuration">Build configuration.</param>
+    /// <param name="verbosity">CLI verbosity level.</param>
+    /// <param name="framework">Target framework.</param>
+    /// <param name="filter">Test filter expression.</param>
+    /// <param name="logger">Logger configuration.</param>
+    /// <param name="resultsDirectory">Directory for test results.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns><c>true</c> if successful.</returns>
+    ValueTask<bool> Test(string path, bool log = true, bool? restore = true, bool? build = true,
+        string? configuration = "Release", string? verbosity = "normal", string? framework = null,
+        string? filter = null, string? logger = null, string? resultsDirectory = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Executes <c>dotnet pack</c>.
     /// </summary>
-    ValueTask<bool> Pack(string path, string version, bool log = true, string? configuration = "Release", bool? build = false, bool? restore = false,
-        string? output = ".", string? verbosity = "normal", CancellationToken cancellationToken = default);
+    /// <param name="path">Project path.</param>
+    /// <param name="version">Package version.</param>
+    /// <param name="log">Whether to log execution details.</param>
+    /// <param name="configuration">Build configuration.</param>
+    /// <param name="build">Whether to build before packing.</param>
+    /// <param name="restore">Whether to restore before packing.</param>
+    /// <param name="output">Output directory.</param>
+    /// <param name="verbosity">CLI verbosity level.</param>
+    /// <param name="framework">Target framework.</param>
+    /// <param name="runtime">Runtime identifier.</param>
+    /// <param name="includeSymbols">Include symbols package.</param>
+    /// <param name="includeSource">Include source files.</param>
+    /// <param name="serviceable">Marks package as serviceable.</param>
+    /// <param name="properties">MSBuild properties.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns><c>true</c> if successful.</returns>
+    ValueTask<bool> Pack(string path, string version, bool log = true, string? configuration = "Release",
+        bool? build = false, bool? restore = false, string? output = ".", string? verbosity = "normal",
+        string? framework = null, string? runtime = null, bool? includeSymbols = null,
+        bool? includeSource = null, bool? serviceable = null,
+        IReadOnlyList<KeyValuePair<string, string?>>? properties = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Executes <c>dotnet clean</c>.
+    /// Adds a NuGet package to a project.
+    /// </summary>
+    ValueTask<bool> AddPackage(string projectPath, string packageId, string? version = null, bool log = true,
+        bool? restore = true, string? framework = null, string? source = null, bool prerelease = false,
+        string? packageDirectory = null, bool interactive = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a NuGet package from a project.
+    /// </summary>
+    ValueTask<bool> RemovePackage(string path, string packageId, bool log = true, bool? restore = true,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cleans build outputs for a project or solution.
     /// </summary>
     ValueTask<bool> Clean(string path, bool log = true, string? configuration = "Release", string? verbosity = "normal",
+        string? framework = null, string? runtime = null, string? output = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Removes a package reference from a project using <c>dotnet remove package</c>.
+    /// Lists NuGet packages for a project.
     /// </summary>
-    ValueTask<bool> RemovePackage(string path, string packageId, bool log = true, bool? restore = true, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Adds or updates a package reference using <c>dotnet add package</c>.
-    /// </summary>
-    /// <param name="projectPath">The project file path.</param>
-    /// <param name="packageId">The package ID.</param>
-    /// <param name="version">Optional version. If null, resolves to latest available.</param>
-    /// <param name="log">Whether to log command execution.</param>
-    /// <param name="restore">Whether to restore after adding.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    ValueTask<bool> AddPackage(string projectPath, string packageId, string? version = null, bool log = true, bool? restore = true,
+    ValueTask<List<KeyValuePair<string, string>>> ListPackages(string path, bool outdated = false, bool transitive = false,
+        bool includePrerelease = false, bool vulnerable = false, bool deprecated = false, bool log = true,
+        string? verbosity = "normal", string? framework = null, bool interactive = false, string? source = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Updates all outdated top-level packages across one or more projects.
+    /// Updates all outdated top-level packages across projects under a path.
     /// </summary>
-    /// <remarks>
-    /// This method:
-    /// <list type="number">
-    /// <item><description>Restores the solution or project.</description></item>
-    /// <item><description>Identifies outdated packages using JSON output.</description></item>
-    /// <item><description>Updates each package to its latest version.</description></item>
-    /// <item><description>Performs a final restore.</description></item>
-    /// </list>
-    /// </remarks>
-    ValueTask<bool> UpdatePackages(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default);
+    ValueTask<bool> UpdatePackages(string path, bool log = true, string? verbosity = "normal",
+        CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lists packages for a project using <c>dotnet package list</c> JSON output.
+    /// Gets all project files under a path.
     /// </summary>
-    /// <param name="path">Project or solution path.</param>
-    /// <param name="outdated">Whether to include only outdated packages.</param>
-    /// <param name="transitive">Whether to include transitive dependencies.</param>
-    /// <param name="includePrerelease">Whether to include prerelease versions.</param>
-    /// <param name="vulnerable">Whether to include vulnerable packages.</param>
-    /// <param name="deprecated">Whether to include deprecated packages.</param>
-    /// <param name="log">Whether to log command execution.</param>
-    /// <param name="verbosity">CLI verbosity level.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A list of package ID and version pairs.</returns>
-    ValueTask<List<KeyValuePair<string, string>>> ListPackages(string path, bool outdated = false, bool transitive = false, bool includePrerelease = false,
-        bool vulnerable = false, bool deprecated = false, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Retrieves all project files (<c>.csproj</c>) from a path.
-    /// </summary>
-    /// <param name="path">A project file or directory.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A list of project file paths.</returns>
-    ValueTask<List<string>> GetProjectFiles(string path, CancellationToken cancellationToken);
+    ValueTask<List<string>> GetProjectFiles(string path, CancellationToken cancellationToken = default);
 }
