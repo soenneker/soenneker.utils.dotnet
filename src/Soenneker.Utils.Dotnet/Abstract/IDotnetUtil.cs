@@ -1,8 +1,8 @@
 using System;
-using System.Diagnostics;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using DiagnosticsProcess = System.Diagnostics.Process;
 
 namespace Soenneker.Utils.Dotnet.Abstract;
 
@@ -75,7 +75,7 @@ public interface IDotnetUtil
     /// <param name="errorCallback">Optional callback invoked for each stderr line.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The started process, or <c>null</c> if launch validation or startup failed.</returns>
-    ValueTask<Process?> Start(string path, string? framework = null, bool log = true, string? configuration = "Release",
+    ValueTask<DiagnosticsProcess?> Start(string path, string? framework = null, bool log = true, string? configuration = "Release",
         string? verbosity = "normal", bool? build = true, bool? restore = true, string? urls = null,
         string? launchProfile = null, string? environment = null, IReadOnlyList<string>? applicationArguments = null,
         Action<string>? outputCallback = null, Action<string>? errorCallback = null, CancellationToken cancellationToken = default);

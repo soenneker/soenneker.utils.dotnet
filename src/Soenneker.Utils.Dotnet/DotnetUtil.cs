@@ -8,12 +8,12 @@ using Soenneker.Utils.Process.Abstract;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using Soenneker.Extensions.String;
 using System.Threading.Tasks;
+using DiagnosticsProcess = System.Diagnostics.Process;
 
 namespace Soenneker.Utils.Dotnet;
 
@@ -110,7 +110,7 @@ public sealed class DotnetUtil : IDotnetUtil
             .NoSync();
     }
 
-    public async ValueTask<Process?> Start(string path, string? framework = null, bool log = true, string? configuration = "Release",
+    public async ValueTask<DiagnosticsProcess?> Start(string path, string? framework = null, bool log = true, string? configuration = "Release",
         string? verbosity = "normal", bool? build = true, bool? restore = true, string? urls = null, string? launchProfile = null,
         string? environment = null, IReadOnlyList<string>? applicationArguments = null, Action<string>? outputCallback = null,
         Action<string>? errorCallback = null, CancellationToken cancellationToken = default)
@@ -140,7 +140,7 @@ public sealed class DotnetUtil : IDotnetUtil
             startInfo.Environment[environmentalVar.Key] = environmentalVar.Value;
         }
 
-        var process = new Process
+        var process = new DiagnosticsProcess
         {
             StartInfo = startInfo,
             EnableRaisingEvents = true
@@ -185,7 +185,7 @@ public sealed class DotnetUtil : IDotnetUtil
             {
                 CancellationTokenRegistration registration = cancellationToken.Register(static state =>
                 {
-                    var process = (Process)state!;
+                    var process = (DiagnosticsProcess)state!;
 
                     try
                     {
@@ -481,7 +481,7 @@ public sealed class DotnetUtil : IDotnetUtil
         if (!fileExists)
             return path;
 
-        string? directory = Path.GetDirectoryName(path);
+        string? directory = System.IO.Path.GetDirectoryName(path);
 
         if (directory.IsNullOrWhiteSpace())
             throw new InvalidOperationException($"Could not determine working directory for '{path}'.");
