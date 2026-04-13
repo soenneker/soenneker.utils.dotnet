@@ -92,9 +92,9 @@ public sealed class DotnetUtil : IDotnetUtil
     }
 
     public ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal",
-        bool? build = true, CancellationToken cancellationToken = default)
+        bool? build = true, string? urls = null, CancellationToken cancellationToken = default)
     {
-        return TryExecuteDotnet(ArgumentUtil.Run(path, framework, configuration, verbosity, build), log, cancellationToken);
+        return TryExecuteDotnet(ArgumentUtil.Run(path, framework, configuration, verbosity, build, urls), log, cancellationToken);
     }
 
     public ValueTask<bool> Restore(string path, bool log = true, string? verbosity = "normal", CancellationToken cancellationToken = default)

@@ -44,10 +44,11 @@ public interface IDotnetUtil
     /// <param name="configuration">Build configuration (e.g., Release, Debug).</param>
     /// <param name="verbosity">CLI verbosity level.</param>
     /// <param name="build">Whether to build before running.</param>
+    /// <param name="urls">Optional ASP.NET Core URLs passed through <c>--urls</c>.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns><c>true</c> if execution succeeds; otherwise <c>false</c>.</returns>
     ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal",
-        bool? build = true, CancellationToken cancellationToken = default);
+        bool? build = true, string? urls = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Executes <c>dotnet restore</c>.

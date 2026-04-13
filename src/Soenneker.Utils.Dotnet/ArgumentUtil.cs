@@ -1,10 +1,12 @@
-﻿using Soenneker.Extensions.String;
+﻿using System.Collections.Generic;
+using Soenneker.Extensions.String;
 using Soenneker.Utils.PooledStringBuilders;
-using System.Collections.Generic;
+
+namespace Soenneker.Utils.Dotnet;
 
 internal static class ArgumentUtil
 {
-    internal static string Run(string path, string? framework, string? configuration, string? verbosity, bool? build)
+    internal static string Run(string path, string? framework, string? configuration, string? verbosity, bool? build, string? urls)
     {
         using var sb = new PooledStringBuilder();
 
@@ -32,6 +34,12 @@ internal static class ArgumentUtil
 
         if (build.HasValue && !build.Value)
             sb.Append(" --no-build");
+
+        if (urls.HasContent())
+        {
+            sb.Append(" --urls ");
+            sb.Append(urls);
+        }
 
         return sb.ToString();
     }
