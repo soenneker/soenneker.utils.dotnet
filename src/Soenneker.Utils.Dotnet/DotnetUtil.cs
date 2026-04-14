@@ -1,19 +1,18 @@
 ﻿using Microsoft.Extensions.Logging;
+using Soenneker.Extensions.String;
 using Soenneker.Extensions.ValueTask;
 using Soenneker.Utils.Directory.Abstract;
 using Soenneker.Utils.Dotnet.Abstract;
 using Soenneker.Utils.Dotnet.Dtos;
 using Soenneker.Utils.File.Abstract;
 using Soenneker.Utils.Process.Abstract;
+using Soenneker.Utils.Process.Dtos;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
-using Soenneker.Extensions.String;
 using System.Threading.Tasks;
-using DiagnosticsProcess = System.Diagnostics.Process;
 
 namespace Soenneker.Utils.Dotnet;
 
@@ -110,10 +109,10 @@ public sealed class DotnetUtil : IDotnetUtil
             .NoSync();
     }
 
-    public async ValueTask<DiagnosticsProcess?> Start(string path, string? framework = null, bool log = true, string? configuration = "Release",
-        string? verbosity = "normal", bool? build = true, bool? restore = true, string? urls = null, string? launchProfile = null,
-        string? environment = null, IReadOnlyList<string>? applicationArguments = null, Action<string>? outputCallback = null,
-        Action<string>? errorCallback = null, CancellationToken cancellationToken = default)
+    public async ValueTask<System.Diagnostics.Process?> Start(string path, string? framework = null, bool log = true, string? configuration = "Release",
+        string? verbosity = "normal", bool? build = true, bool? restore = true, string? urls = null, string? launchProfile = null, string? environment = null,
+        IReadOnlyList<string>? applicationArguments = null, Action<string>? outputCallback = null, Action<string>? errorCallback = null,
+        CancellationToken cancellationToken = default)
     {
         (bool valid, bool fileExists, _) = await ValidateRunPath(path, log, cancellationToken)
             .NoSync();
@@ -126,91 +125,22 @@ public sealed class DotnetUtil : IDotnetUtil
         if (log)
             _logger.LogInformation("Starting: dotnet {Arguments}", arguments);
 
-        var startInfo = new ProcessStartInfo("dotnet", arguments)
+        var dto = new ProcessStartDto
         {
+            FileName = "dotnet",
+            Arguments = arguments,
             WorkingDirectory = ResolveWorkingDirectory(path, fileExists),
-            UseShellExecute = false,
+            CreateNoWindow = true,
             RedirectStandardOutput = outputCallback is not null,
             RedirectStandardError = errorCallback is not null,
-            CreateNoWindow = true
+            Log = log,
+            EnvironmentVariables = _environmentalVars,
+            OutputCallback = outputCallback,
+            ErrorCallback = errorCallback
         };
 
-        foreach (KeyValuePair<string, string> environmentalVar in _environmentalVars)
-        {
-            startInfo.Environment[environmentalVar.Key] = environmentalVar.Value;
-        }
-
-        var process = new DiagnosticsProcess
-        {
-            StartInfo = startInfo,
-            EnableRaisingEvents = true
-        };
-
-        if (outputCallback is not null)
-        {
-            process.OutputDataReceived += (_, args) =>
-            {
-                if (args.Data.HasContent())
-                    outputCallback(args.Data);
-            };
-        }
-
-        if (errorCallback is not null)
-        {
-            process.ErrorDataReceived += (_, args) =>
-            {
-                if (args.Data.HasContent())
-                    errorCallback(args.Data);
-            };
-        }
-
-        try
-        {
-            if (!process.Start())
-            {
-                if (log)
-                    _logger.LogError("dotnet {Arguments} did not start a process", arguments);
-
-                process.Dispose();
-                return null;
-            }
-
-            if (startInfo.RedirectStandardOutput)
-                process.BeginOutputReadLine();
-
-            if (startInfo.RedirectStandardError)
-                process.BeginErrorReadLine();
-
-            if (cancellationToken.CanBeCanceled)
-            {
-                CancellationTokenRegistration registration = cancellationToken.Register(static state =>
-                {
-                    var process = (DiagnosticsProcess)state!;
-
-                    try
-                    {
-                        if (!process.HasExited)
-                            process.Kill(entireProcessTree: true);
-                    }
-                    catch
-                    {
-                    }
-                }, process);
-
-                process.Exited += (_, _) => registration.Dispose();
-            }
-
-            return process;
-        }
-        catch (Exception ex)
-        {
-            process.Dispose();
-
-            if (log)
-                _logger.LogError(ex, "dotnet {Arguments} failed to start", arguments);
-
-            return null;
-        }
+        return await _processUtil.StartDetached(dto, cancellationToken)
+                                 .NoSync();
     }
 
     public ValueTask<bool> Restore(string path, bool log = true, string? verbosity = "normal", string? runtime = null, string? packages = null,
