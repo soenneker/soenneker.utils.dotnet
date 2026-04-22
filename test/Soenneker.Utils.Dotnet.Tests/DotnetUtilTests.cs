@@ -1,26 +1,25 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
 using AwesomeAssertions;
-using Soenneker.Facts.Local;
+using Soenneker.Tests.Attributes.Local;
 using Soenneker.Facts.Manual;
-using Soenneker.Tests.FixturedUnit;
+using Soenneker.Tests.HostedUnit;
 using Soenneker.Utils.Dotnet.Abstract;
-using Xunit;
 
 namespace Soenneker.Utils.Dotnet.Tests;
 
-[Collection("Collection")]
-public class DotnetUtilTests : FixturedUnitTest
+[ClassDataSource<Host>(Shared = SharedType.PerTestSession)]
+public class DotnetUtilTests : HostedUnitTest
 {
     private readonly IDotnetUtil _util;
 
-    public DotnetUtilTests(Fixture fixture, ITestOutputHelper output) : base(fixture, output)
+    public DotnetUtilTests(Host host) : base(host)
     {
         _util = Resolve<IDotnetUtil>();
     }
 
-    [Fact]
+    [Test]
     public void Default()
     {
     }
@@ -39,7 +38,7 @@ public class DotnetUtilTests : FixturedUnitTest
               .BeTrue();
     }
 
-    [LocalFact]
+    [LocalOnly]
     public async ValueTask GetDependencySetsLocal()
     {
         (List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive) result = await _util.GetDependencySetsLocal("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj", CancellationToken);
@@ -48,7 +47,7 @@ public class DotnetUtilTests : FixturedUnitTest
               .NotBeNull();
     }
 
-    [LocalFact]
+    [LocalOnly]
     //[ManualFact]
     public async ValueTask UpdatePackages()
     {
@@ -59,7 +58,7 @@ public class DotnetUtilTests : FixturedUnitTest
     }
 
     //[ManualFact]
-    [LocalFact]
+    [LocalOnly]
     public async ValueTask Test()
     {
         bool result = await _util.Test("", cancellationToken: CancellationToken);
@@ -68,7 +67,7 @@ public class DotnetUtilTests : FixturedUnitTest
               .BeFalse();
     }
 
-    [LocalFact]
+    [LocalOnly]
     public async ValueTask GetPackages()
     {
         List<KeyValuePair<string, string>> result = await _util.ListPackages("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj", transitive: true, cancellationToken: CancellationToken);
