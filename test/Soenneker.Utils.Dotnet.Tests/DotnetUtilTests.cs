@@ -3,7 +3,6 @@ using System.Reflection;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Soenneker.Tests.Attributes.Local;
-using Soenneker.Facts.Manual;
 using Soenneker.Tests.HostedUnit;
 using Soenneker.Utils.Dotnet.Abstract;
 
@@ -24,7 +23,7 @@ public class DotnetUtilTests : HostedUnitTest
     {
     }
 
-    [ManualFact]
+    [Skip("Manual")]
     public async ValueTask Build()
     {
         string? path = System.IO.Path.GetDirectoryName(Assembly.GetExecutingAssembly()
@@ -48,7 +47,7 @@ public class DotnetUtilTests : HostedUnitTest
     }
 
     [LocalOnly]
-    //[ManualFact]
+    //[Skip("Manual")]
     public async ValueTask UpdatePackages()
     {
         bool result = await _util.UpdatePackages("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj", cancellationToken: CancellationToken);
@@ -57,7 +56,7 @@ public class DotnetUtilTests : HostedUnitTest
               .BeTrue();
     }
 
-    //[ManualFact]
+    //[Skip("Manual")]
     [LocalOnly]
     public async ValueTask Test()
     {
