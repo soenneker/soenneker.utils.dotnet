@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Reflection;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Soenneker.Tests.Attributes.Local;
@@ -24,9 +23,10 @@ public class DotnetUtilTests : HostedUnitTest
     }
 
     [Skip("Manual")]
+    [Test]
     public async ValueTask Build()
     {
-        string? path = System.IO.Path.GetDirectoryName(Assembly.GetExecutingAssembly()
+        string? path = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly()
                                                                .Location);
 
         string proj = System.IO.Path.Combine(path!, "..", "..", "..", "..", "src");
@@ -38,6 +38,7 @@ public class DotnetUtilTests : HostedUnitTest
     }
 
     [LocalOnly]
+    [Test]
     public async ValueTask GetDependencySetsLocal()
     {
         (List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive) result = await _util.GetDependencySetsLocal("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj", System.Threading.CancellationToken.None);
@@ -48,6 +49,7 @@ public class DotnetUtilTests : HostedUnitTest
 
     [LocalOnly]
     //[Skip("Manual")]
+    [Test]
     public async ValueTask UpdatePackages()
     {
         bool result = await _util.UpdatePackages("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj", cancellationToken: System.Threading.CancellationToken.None);
@@ -58,6 +60,7 @@ public class DotnetUtilTests : HostedUnitTest
 
     //[Skip("Manual")]
     [LocalOnly]
+    [Test]
     public async ValueTask Test()
     {
         bool result = await _util.Test("", cancellationToken: System.Threading.CancellationToken.None);
@@ -67,6 +70,7 @@ public class DotnetUtilTests : HostedUnitTest
     }
 
     [LocalOnly]
+    [Test]
     public async ValueTask GetPackages()
     {
         List<KeyValuePair<string, string>> result = await _util.ListPackages("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj", transitive: true, cancellationToken: System.Threading.CancellationToken.None);
