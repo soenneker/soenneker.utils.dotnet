@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Soenneker.Tests.Attributes.Local;
@@ -14,7 +15,7 @@ public class DotnetUtilTests : HostedUnitTest
 
     public DotnetUtilTests(Host host) : base(host)
     {
-        _util = Resolve<IDotnetUtil>();
+        _util = Resolve<IDotnetUtil>(true);
     }
 
     [Test]
@@ -26,58 +27,54 @@ public class DotnetUtilTests : HostedUnitTest
     [Test]
     public async ValueTask Build()
     {
-        string? path = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly()
-                                                               .Location);
+        string? path = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
 
         string proj = System.IO.Path.Combine(path!, "..", "..", "..", "..", "src");
 
         bool result = await _util.Build(proj);
 
-        result.Should()
-              .BeTrue();
+        result.Should().BeTrue();
     }
 
-    [LocalOnly]
+    [Skip("Manual")]
     [Test]
-    public async ValueTask GetDependencySetsLocal()
+    public async ValueTask GetDependencySetsLocal(CancellationToken cancellationToken)
     {
-        (List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive) result = await _util.GetDependencySetsLocal("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj", System.Threading.CancellationToken.None);
+        (List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive) result = await _util.GetDependencySetsLocal(
+            "C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj",
+            cancellationToken);
 
-        result.Should()
-              .NotBeNull();
+        result.Should().NotBeNull();
     }
 
-    [LocalOnly]
-    //[Skip("Manual")]
+    [Skip("Manual")]
     [Test]
-    public async ValueTask UpdatePackages()
+    public async ValueTask UpdatePackages(CancellationToken cancellationToken)
     {
-        bool result = await _util.UpdatePackages("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj", cancellationToken: System.Threading.CancellationToken.None);
+        bool result = await _util.UpdatePackages(
+            "C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj",
+            cancellationToken: cancellationToken);
 
-        result.Should()
-              .BeTrue();
+        result.Should().BeTrue();
     }
 
-    //[Skip("Manual")]
-    [LocalOnly]
+    [Skip("Manual")]
     [Test]
-    public async ValueTask Test()
+    public async ValueTask Test(CancellationToken cancellationToken)
     {
-        bool result = await _util.Test("", cancellationToken: System.Threading.CancellationToken.None);
+        bool result = await _util.Test("", cancellationToken: cancellationToken);
 
-        result.Should()
-              .BeFalse();
+        result.Should().BeFalse();
     }
 
-    [LocalOnly]
+    [Skip("Manual")]
     [Test]
-    public async ValueTask GetPackages()
+    public async ValueTask GetPackages(CancellationToken cancellationToken)
     {
-        List<KeyValuePair<string, string>> result = await _util.ListPackages("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj", transitive: true, cancellationToken: System.Threading.CancellationToken.None);
+        List<KeyValuePair<string, string>> result =
+            await _util.ListPackages("C:\\git\\Soenneker\\Utils\\soenneker.utils.process\\src\\Soenneker.Utils.Process\\Soenneker.Utils.Process.csproj",
+                transitive: true, cancellationToken: cancellationToken);
 
-        result.Should()
-              .NotBeNullOrEmpty();
+        result.Should().NotBeNullOrEmpty();
     }
 }
-
-
