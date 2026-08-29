@@ -45,6 +45,6 @@
         <PackageReference Include="Soenneker.Utils.Directory" Version="4.0.903" />
         <PackageReference Include="Soenneker.Utils.File" Version="4.0.2226" />
         <PackageReference Include="Soenneker.Utils.PooledStringBuilders" Version="4.0.27" />
-        <PackageReference Include="Soenneker.Utils.Process" Version="4.0.1526" />
+        <PackageReference Include="Soenneker.Utils.Process" Version="4.0.1528" />
     </ItemGroup>
 </Project>
