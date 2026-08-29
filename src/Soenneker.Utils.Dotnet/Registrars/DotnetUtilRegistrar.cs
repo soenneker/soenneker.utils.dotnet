@@ -15,6 +15,7 @@ public static class DotnetUtilRegistrar
     /// <summary>
     /// Adds <see cref="IDotnetUtil"/> as a singleton service. <para/>
     /// </summary>
+    /// <returns>Adds <see cref="IDotnetUtil"/> as a singleton service. <para/>.</returns>
     public static IServiceCollection AddDotnetUtilAsSingleton(this IServiceCollection services)
     {
         services.AddProcessUtilAsSingleton()
@@ -27,6 +28,7 @@ public static class DotnetUtilRegistrar
     /// <summary>
     /// Adds <see cref="IDotnetUtil"/> as a scoped service. <para/>
     /// </summary>
+    /// <returns>Adds <see cref="IDotnetUtil"/> as a scoped service. <para/>.</returns>
     public static IServiceCollection AddDotnetUtilAsScoped(this IServiceCollection services)
     {
         services.AddProcessUtilAsScoped()

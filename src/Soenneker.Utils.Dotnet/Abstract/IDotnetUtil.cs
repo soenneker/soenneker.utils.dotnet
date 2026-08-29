@@ -166,6 +166,7 @@ public interface IDotnetUtil
     /// <summary>
     /// Adds a NuGet package to a project.
     /// </summary>
+    /// <returns>Adds a NuGet package to a project.</returns>
     ValueTask<bool> AddPackage(string projectPath, string packageId, string? version = null, bool log = true,
         bool? restore = true, string? framework = null, string? source = null, bool prerelease = false,
         string? packageDirectory = null, bool interactive = false, CancellationToken cancellationToken = default);
@@ -173,12 +174,14 @@ public interface IDotnetUtil
     /// <summary>
     /// Removes a NuGet package from a project.
     /// </summary>
+    /// <returns>Removes a NuGet package from a project.</returns>
     ValueTask<bool> RemovePackage(string path, string packageId, bool log = true, bool? restore = true,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Cleans build outputs for a project or solution.
     /// </summary>
+    /// <returns>Cleans build outputs for a project or solution.</returns>
     ValueTask<bool> Clean(string path, bool log = true, string? configuration = "Release", string? verbosity = "normal",
         string? framework = null, string? runtime = null, string? output = null,
         CancellationToken cancellationToken = default);
@@ -186,6 +189,7 @@ public interface IDotnetUtil
     /// <summary>
     /// Lists NuGet packages for a project.
     /// </summary>
+    /// <returns>Lists NuGet packages for a project.</returns>
     ValueTask<List<KeyValuePair<string, string>>> ListPackages(string path, bool outdated = false, bool transitive = false,
         bool includePrerelease = false, bool vulnerable = false, bool deprecated = false, bool log = true,
         string? verbosity = "normal", string? framework = null, bool interactive = false, string? source = null,
@@ -194,11 +198,13 @@ public interface IDotnetUtil
     /// <summary>
     /// Updates all outdated top-level packages across projects under a path.
     /// </summary>
+    /// <returns>Updates all outdated top-level packages across projects under a path.</returns>
     ValueTask<bool> UpdatePackages(string path, bool log = true, string? verbosity = "normal",
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets all project files under a path.
     /// </summary>
+    /// <returns>The all project files under a path.</returns>
     ValueTask<List<string>> GetProjectFiles(string path, CancellationToken cancellationToken = default);
 }
