@@ -367,6 +367,10 @@ public sealed class DotnetUtil : IDotnetUtil
 
             return true;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             if (log)
