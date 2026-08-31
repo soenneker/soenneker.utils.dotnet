@@ -214,34 +214,15 @@ public sealed class DotnetUtil : IDotnetUtil
 
         foreach (string projectFile in projectFiles)
         {
-            _logger.LogInformation("Checking outdated packages for project ({ProjectFile})...", projectFile);
+            _logger.LogInformation("Updating outdated packages for project ({ProjectFile})...", projectFile);
 
-            PackageListReport report = await GetPackageListReport(projectFile, includeTransitive: false, outdated: true, noRestore: true, verbosity: verbosity,
-                    log: log, cancellationToken: cancellationToken)
+            bool updated = await TryExecuteDotnet(ArgumentUtil.UpdatePackages(projectFile, verbosity), log, cancellationToken)
                 .NoSync();
 
-            List<PackageUpdateCandidate> candidates = GetOutdatedTopLevelPackages(report);
-
-            if (candidates.Count == 0)
+            if (!updated)
             {
-                _logger.LogInformation("No outdated packages found for project ({ProjectFile})", projectFile);
-                continue;
-            }
-
-            foreach (PackageUpdateCandidate candidate in candidates)
-            {
-                _logger.LogInformation("Updating package ({PackageId}) in project ({ProjectFile}) from {ResolvedVersion} to {LatestVersion}...",
-                    candidate.PackageId, projectFile, candidate.ResolvedVersion, candidate.LatestVersion);
-
-                bool updated = await AddPackage(projectFile, candidate.PackageId, candidate.LatestVersion, log, restore: false,
-                        cancellationToken: cancellationToken)
-                    .NoSync();
-
-                if (!updated)
-                {
-                    _logger.LogError("Failed to update package ({PackageId}) in project ({ProjectFile})", candidate.PackageId, projectFile);
-                    allPackagesUpdated = false;
-                }
+                _logger.LogError("Failed to update packages in project ({ProjectFile})", projectFile);
+                allPackagesUpdated = false;
             }
         }
 
@@ -440,39 +421,6 @@ public sealed class DotnetUtil : IDotnetUtil
         }
 
         return projectFiles;
-    }
-
-    private static List<PackageUpdateCandidate> GetOutdatedTopLevelPackages(PackageListReport report)
-    {
-        var candidates = new Dictionary<string, PackageUpdateCandidate>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (ProjectReport project in report.Projects)
-        {
-            foreach (FrameworkReport framework in project.Frameworks)
-            {
-                if (framework.TopLevelPackages is not { Count: > 0 })
-                    continue;
-
-                foreach (PackageEntry package in framework.TopLevelPackages)
-                {
-                    if (package.Id.IsNullOrWhiteSpace())
-                        continue;
-
-                    string? resolved = FirstNonEmpty(package.ResolvedVersion, package.RequestedVersion);
-                    string? latest = package.LatestVersion;
-
-                    if (resolved.IsNullOrWhiteSpace() || latest.IsNullOrWhiteSpace())
-                        continue;
-
-                    if (string.Equals(resolved, latest, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    candidates[package.Id] = new PackageUpdateCandidate(package.Id, resolved, latest);
-                }
-            }
-        }
-
-        return candidates.Values.ToList();
     }
 
     private static string JoinOutput(IReadOnlyList<string> output)

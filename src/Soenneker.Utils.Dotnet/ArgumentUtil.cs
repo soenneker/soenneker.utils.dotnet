@@ -337,6 +337,23 @@ internal static class ArgumentUtil
         return sb.ToString();
     }
 
+    internal static string UpdatePackages(string path, string? verbosity)
+    {
+        using var sb = new PooledStringBuilder();
+
+        sb.Append("package update --project \"");
+        sb.Append(path);
+        sb.Append('"');
+
+        if (verbosity.HasContent())
+        {
+            sb.Append(" --verbosity ");
+            sb.Append(verbosity);
+        }
+
+        return sb.ToString();
+    }
+
     internal static string RemovePackage(string path, string packageId, bool? restore)
     {
         using var sb = new PooledStringBuilder();
