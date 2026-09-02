@@ -25,13 +25,13 @@ public class DotnetUtilTests : HostedUnitTest
 
     [Skip("Manual")]
     [Test]
-    public async ValueTask Build()
+    public async ValueTask Build(CancellationToken cancellationToken)
     {
         string? path = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
 
         string proj = System.IO.Path.Combine(path!, "..", "..", "..", "..", "src");
 
-        bool result = await _util.Build(proj);
+        bool result = await _util.Build(proj, cancellationToken: cancellationToken);
 
         result.Should().BeTrue();
     }
