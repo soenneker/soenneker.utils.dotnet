@@ -9,7 +9,6 @@ using Soenneker.Utils.Process.Abstract;
 using Soenneker.Utils.Process.Dtos;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -89,8 +88,7 @@ public sealed class DotnetUtil : IDotnetUtil
             }
         }
 
-        return (direct.Select(static kvp => new KeyValuePair<string, string>(kvp.Key, kvp.Value))
-                      .ToList(), transitive);
+        return (new List<KeyValuePair<string, string>>(direct), transitive);
     }
 
     public async ValueTask<bool> Run(string path, string? framework = null, bool log = true, string? configuration = "Release", string? verbosity = "normal",
@@ -296,8 +294,7 @@ public sealed class DotnetUtil : IDotnetUtil
             }
         }
 
-        return packages.Select(static kvp => new KeyValuePair<string, string>(kvp.Key, kvp.Value))
-                       .ToList();
+        return new List<KeyValuePair<string, string>>(packages);
     }
 
     private async ValueTask<PackageListReport> GetPackageListReport(string path, bool includeTransitive, bool outdated, bool includePrerelease = false,
@@ -423,7 +420,7 @@ public sealed class DotnetUtil : IDotnetUtil
         return projectFiles;
     }
 
-    private static string JoinOutput(IReadOnlyList<string> output)
+    private static string JoinOutput(List<string> output)
     {
         return output.Count switch
         {
