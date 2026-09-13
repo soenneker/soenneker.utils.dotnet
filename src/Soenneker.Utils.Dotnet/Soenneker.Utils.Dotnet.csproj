@@ -42,8 +42,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Soenneker.Utils.Directory" Version="4.0.937" />
-        <PackageReference Include="Soenneker.Utils.File" Version="4.0.2268" />
-        <PackageReference Include="Soenneker.Utils.Process" Version="4.0.1558" />
+        <PackageReference Include="Soenneker.Utils.Directory" Version="4.0.938" />
+        <PackageReference Include="Soenneker.Utils.File" Version="4.0.2271" />
+        <PackageReference Include="Soenneker.Utils.Process" Version="4.0.1560" />
     </ItemGroup>
 </Project>
