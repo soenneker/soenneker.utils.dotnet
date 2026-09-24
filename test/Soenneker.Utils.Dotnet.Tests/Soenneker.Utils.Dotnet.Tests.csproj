@@ -26,5 +26,8 @@
     <ItemGroup>
         <ProjectReference Include="..\..\src\Soenneker.Utils.Dotnet\Soenneker.Utils.Dotnet.csproj" />
     </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="AwesomeAssertions" Version="9.6.0" />
+    </ItemGroup>
 </Project>
 
