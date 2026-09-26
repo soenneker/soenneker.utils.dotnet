@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Soenneker.Extensions.String;
 using Soenneker.Extensions.ValueTask;
 using Soenneker.Utils.Directory.Abstract;
@@ -23,11 +23,6 @@ public sealed class DotnetUtil : IDotnetUtil
         ["DOTNET_CLI_UI_LANGUAGE"] = "en",
         ["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1",
         ["DOTNET_NOLOGO"] = "1"
-    };
-
-    private static readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
     };
 
     private readonly ILogger<DotnetUtil> _logger;
@@ -314,7 +309,7 @@ public sealed class DotnetUtil : IDotnetUtil
 
         string json = JoinOutput(output);
 
-        var report = JsonSerializer.Deserialize<PackageListReport>(json, _jsonOptions);
+        var report = JsonSerializer.Deserialize(json, DotnetJsonContext.Default.PackageListReport);
 
         if (report is null)
             throw new InvalidOperationException($"Failed to deserialize dotnet package list JSON for '{path}'.");
