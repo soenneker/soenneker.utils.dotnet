@@ -21,6 +21,15 @@ public interface IDotnetUtil
     ValueTask<string> Execute(string arguments, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Clears NuGet's HTTP cache by executing <c>dotnet nuget locals http-cache --clear</c>.
+    /// Downloaded packages in the global packages folder are preserved.
+    /// </summary>
+    /// <param name="log">Whether to log the command and any failure.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns><c>true</c> if the command succeeds; otherwise, <c>false</c>.</returns>
+    ValueTask<bool> ClearNuGetHttpCache(bool log = true, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Retrieves direct and transitive dependency sets for a given project.
     /// </summary>
     /// <param name="csproj">Path to a <c>.csproj</c> file.</param>

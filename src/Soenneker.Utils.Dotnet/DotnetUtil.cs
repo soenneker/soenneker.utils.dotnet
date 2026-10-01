@@ -15,7 +15,6 @@ using System.Threading.Tasks;
 
 namespace Soenneker.Utils.Dotnet;
 
-/// <inheritdoc cref="IDotnetUtil"/>
 public sealed class DotnetUtil : IDotnetUtil
 {
     private static readonly Dictionary<string, string> _environmentalVars = new(StringComparer.Ordinal)
@@ -44,6 +43,11 @@ public sealed class DotnetUtil : IDotnetUtil
             .NoSync();
 
         return JoinOutput(output);
+    }
+
+    public ValueTask<bool> ClearNuGetHttpCache(bool log = true, CancellationToken cancellationToken = default)
+    {
+        return TryExecuteDotnet("nuget locals http-cache --clear", log, cancellationToken);
     }
 
     public async ValueTask<(List<KeyValuePair<string, string>> Direct, HashSet<string> Transitive)> GetDependencySetsLocal(string csproj,
