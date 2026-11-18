@@ -211,7 +211,8 @@ public sealed class DotnetUtil : IDotnetUtil
 
         foreach (string projectFile in projectFiles)
         {
-            _logger.LogInformation("Updating outdated packages for project ({ProjectFile})...", projectFile);
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation("Updating outdated packages for project ({ProjectFile})...", projectFile);
 
             bool updated = await TryExecuteDotnet(ArgumentUtil.UpdatePackages(projectFile, verbosity), log, cancellationToken)
                 .NoSync();
